@@ -16,6 +16,13 @@ class Queue {
 
 };
 
+struct Order {
+  int OID;
+  int Arrival;
+  int Duration;
+  int Timeout;
+};
+
 void Start() {
   std::cout << "*** (^_^) Data Structure (^o^) ***" << std::endl;
   std::cout << "** Simulate FIFO Queues by SQF ***" << std::endl;
