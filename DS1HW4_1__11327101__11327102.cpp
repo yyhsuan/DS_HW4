@@ -1,20 +1,21 @@
 #include <iostream>
 #include <fstream>
 #include <string>
- 
-  
-  
-  
 
 class Queue {
  private:
   struct Node{
-    // 這裡僅提供 Queue 的骨架（任務一不需要完整功能）
-    int val;
+    int OID;
+    int Arrival;
+    int Duration;
+    int Timeout;
     Node* next;
-    Node (int v) {
-     val = v;
-     next = nullptr;
+    Node(int o, int a, int d, int t) {
+      OID = o;
+      Arrival = a;
+      Duration = d;
+      Timeout = t;
+      next = nullptr;
     }
   };
   Node *head, *tail;
