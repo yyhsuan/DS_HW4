@@ -12,7 +12,10 @@ class Queue {
     // 這裡僅提供 Queue 的骨架（任務一不需要完整功能）
     int val;
     Node* next;
-    Node(int v): val(v), next(nullptr) {}
+    Node (int v) {
+     val = v;
+     next = nullptr;
+    }
   };
   Node *head, *tail;
   int len;
