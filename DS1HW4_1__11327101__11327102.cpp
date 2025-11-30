@@ -70,6 +70,22 @@ void Start() {
   std::cout << "Input a command(0, 1, 2, 3, 4): ";
 }
 
+void Print_orders(Order* arr, int n) {
+  std::cout << std::endl;
+  std::cout << std::setw(8) << "OID" << std::setw(10) << "Arrival" 
+            << std::setw(10) << "Duration" << std::setw(12) << "TimeOut" << std::endl;
+  for (int i = 0; i < n; ++i) {
+    std::cout << "(" << i+1 << ")";
+    std::cout << std::setw(6) << arr[i].OID
+              << std::setw(8) << arr[i].Arrival
+              << std::setw(8) << arr[i].Duration
+              << std::setw(10) << arr[i].Timeout
+              << std::endl;
+  }
+  std::cout << std::endl;
+}
+
+
 int main() {
   std::string filename;
   Start();
