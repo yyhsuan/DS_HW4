@@ -34,20 +34,28 @@ class Queue {
   bool empty() {
     return head == nullptr;
   }
-  void enquene(int v) {
-    Node* n = new Node(v);
-    if (tail) tail->next = n;
+  void enquene(int o, int a, int d, int t) {
+    Node* n = new Node(o, a, d, t);
+    if (tail) {
+      tail->next = n;
+    }
     tail = n;
-    if (!head) head = n;
-    ++len;
+    if (!head) {
+      head = n;
+    }
+    len++;
   }
   void dequene() {
-    if (!head) return;
+    if (!head) {
+     return;
+    }
     Node* t = head;
     head = head->next;
-    if (!head) tail = nullptr;
+    if (!head) {
+     tail = nullptr;
+    }
     delete t;
-    --len;
+    len--;
   }
   int size() { 
    return len; 
