@@ -2,10 +2,11 @@
 #include <fstream>
 #include <string>
 #include <iomanip>
-
+#include <ctime>
+#include <chrono>
 class Queue {
  private:
-  struct Node{
+  struct Node {
     int OID;
     int Arrival;
     int Duration;
@@ -19,22 +20,27 @@ class Queue {
       next = nullptr;
     }
   };
+
   Node *head, *tail;
   int len;
+
  public:
   Queue() {
-   head = nullptr;
-   tail = nullptr;
-   len = 0;
+    head = nullptr;
+    tail = nullptr;
+    len = 0;
   }
+
   ~Queue() {
     while (!empty()) {
       dequene();
     }
   }
+
   bool empty() {
     return head == nullptr;
   }
+
   void enquene(int o, int a, int d, int t) {
     Node* n = new Node(o, a, d, t);
     if (tail) {
@@ -46,90 +52,209 @@ class Queue {
     }
     len++;
   }
+
   void dequene() {
     if (!head) {
-     return;
+      return;
     }
     Node* t = head;
     head = head->next;
     if (!head) {
-     tail = nullptr;
+      tail = nullptr;
     }
     delete t;
     len--;
   }
-  int size() { 
-   return len; 
+
+  int size() {
+    return len;
+  }
+  void load(std::ifstream &infile) {
+    char ch;
+    std::string s;
+    std::getline(infile, s);
+    int num = 0;
+    int order = 0;
+    int o, a, d, t;
+    infile.get(ch);
+    while ( !infile.eof() ) {
+      if ( ch == '\n' ) {
+        order = 0;
+        infile.get(ch);
+      }
+
+      if ( ch == '\t' ) {
+        infile.get(ch);
+      }
+      
+      if ( ch != '\n' ) {
+        order++;
+        num = 0;
+        while ( ch != '\t' && ch != '\n' ) {
+          num = (10 * num) + (ch - '0');
+          infile.get(ch);
+        }
+      }
+
+      if ( order == 1 ) {
+        o = num;
+      }
+
+      if ( order == 2 ) {
+        a = num;
+      }
+
+      if ( order == 3 ) {
+        d = num;
+      }
+
+      if ( order == 4 ) {
+        t = num;
+        enquene(o, a, d, t);
+      }
+    }
+    return;
   }
 
-};
+  
 
-struct Order {
-  int OID;
-  int Arrival;
-  int Duration;
-  int Timeout;
-};
-
-void Start() {
-  std::cout << "*** (^_^) Data Structure (^o^) ***" << std::endl;
-  std::cout << "** Simulate FIFO Queues by SQF ***" << std::endl;
-  std::cout << "* 0. Quit                        *" << std::endl;
-  std::cout << "* 1. Sort a file                 *" << std::endl;
-  std::cout << "* 2. Simulate one FIFO queue     *" << std::endl;
-  std::cout << "* 3. Simulate two queues by SQF  *" << std::endl;
-  std::cout << "* 4. Simulate some queues by SQF *" << std::endl;
-  std::cout << "**********************************" << std::endl;
-  std::cout << "Input a command(0, 1, 2, 3, 4): ";
-}
-
-void Print_original(Order* arr, int n) {
-  std::cout << std::endl;
-  std::cout << std::setw(8) << "OID" << std::setw(10) << "Arrival" 
-            << std::setw(10) << "Duration" << std::setw(12) << "TimeOut" << std::endl;
-  for (int i = 0; i < n; i++) {
-    std::cout << "(" << i+1 << ")";
-    std::cout << std::setw(6) << arr[i].OID
-              << std::setw(8) << arr[i].Arrival
-              << std::setw(8) << arr[i].Duration
-              << std::setw(10) << arr[i].Timeout
-              << std::endl;
+  // 安全版 turnindex (0-based)，index 非法回傳 nullptr
+  Node* turnindex(int index) {
+    Node* temp = head;
+    int i = 0;
+    while (i < index) {
+      temp = temp->next;
+      i++;
+    }
+    return temp;
   }
-  std::cout << std::endl;
-}
+
+  // print list content (index from 0)
+  void print() {
+    Node* cur = head;
+    int i = 0;
+    while (cur) {
+      std::cout << "(" << i << ") "
+                << cur->OID << " "
+                << cur->Arrival << " "
+                << cur->Duration << " "
+                << cur->Timeout << "\n";
+      cur = cur->next;
+      ++i;
+    }
+    std::cout << "-----\n";
+  }
+
+  // 你要求的 sell_sore2：保留迴圈結構、搬移節點資料（不改 next）
+  void sell_sore2() {
+    int size = len;
+    if (size <= 1) {
+      return;
+    }
+    int gap = size / 2;
+    while (gap != 0) {
+      for (int i = 0; i < size; i++) { // 跑下一組
+        for (int j = i + gap; j < size; j = j + gap) { // 跑下一個這個組的成員
+          Node* temp1 = turnindex(j);
+          int tempOID      = temp1->OID;
+          int tempArrival  = temp1->Arrival;
+          int tempDuration = temp1->Duration;
+          int tempTimeout  = temp1->Timeout;
+          int k = j - gap;
+          while (k >= 0) {
+            Node* k_temp = turnindex(k);
+            bool needmove = false;
+            if (k_temp->Arrival > tempArrival) {
+              needmove = true;
+            } else if (k_temp->Arrival == tempArrival && k_temp->OID > tempOID) {
+              needmove = true;
+            }
+            if (!needmove) {
+              break;
+            }
+            Node* target = turnindex(k + gap);
+            target->OID      = k_temp->OID;
+            target->Arrival  = k_temp->Arrival;
+            target->Duration = k_temp->Duration;
+            target->Timeout  = k_temp->Timeout;
+            k = k - gap;
+          }
+          Node* insert = turnindex(k + gap);
+          if (insert != nullptr) {
+            insert->OID      = tempOID;
+            insert->Arrival  = tempArrival;
+            insert->Duration = tempDuration;
+            insert->Timeout  = tempTimeout;
+          }
+        }
+      }
+      gap = gap / 2;
+    }
+  }
+
+  void write_file(int file_number) {
+    std::string filename = "sorted" + std::to_string(file_number) + ".txt";
+    std::ofstream outfile(filename);
+    Node *temp = head;
+    outfile << "OID Arrival Duration TimeOut\n";
+    while ( temp != NULL ) {
+        outfile << temp->OID << "\t"
+                << temp->Arrival << "\t"
+                << temp->Duration << "\t"
+                << temp->Timeout << "\n";
+        temp = temp->next;
+    }
+    outfile.close();
+  }
+
+  void Print_original(std::string filename) {
+    std::ifstream infile(filename); // 讀檔
+    char ch;
+    while ( infile.get(ch) ) {
+      std::cout << ch;
+    }
+    std::cout << std::endl;
+    infile.close();
+  }
+
+
+}; // end Queue
 
 void task1() {
   int file_number;
-  std::cout << "Input a file number (e.g., 401, 402, 403, ...): 401";
+  std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
   std::cin >> file_number;
-  filename = "input" + std::to_string(file_number) + ".txt"; // 轉字串
+  std::string filename = "input" + std::to_string(file_number) + ".txt"; // 轉字串
   std::ifstream infile(filename); // 讀檔
+  Queue q1;
   if (infile) {
-
-
+    q1.Print_original(filename);
+    auto start = std::chrono::high_resolution_clock::now();
+    std::ifstream infile2(filename);
+    q1.load(infile2);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Reading data: " << duration.count() << " us." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    q1.sell_sore2();
+    end = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Sorting data: " << duration.count() << " us." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    q1.write_file(file_number);
+    end = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Writing data: " << duration.count() << " us." << std::endl;
+    
   } else {
     std::cout << "input" << file_number << ".txt does not exist!";
   }
- 
-}
-
-void write_file(int file_number, Order arr[], int n) {
-    std::string filename = "sorted" + std::to_string(file_number) + ".txt";
-    std::ofstream outfile(filename);
-
-    outfile << "OID Arrival Duration TimeOut\n";
-    for (int i = 0; i < n; i++) {
-        outfile << arr[i].OID << " "
-                << arr[i].Arrival << " "
-                << arr[i].Duration << " "
-                << arr[i].Timeout << "\n";
-    }
-    outfile.close();
+  return;
 }
 
 int main() {
+  // 範例 1
   std::string filename;
-  Start();
- 
+  task1();
   return 0;
 }
