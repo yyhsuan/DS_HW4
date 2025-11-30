@@ -112,6 +112,20 @@ void task1() {
  
 }
 
+void write_file(int file_number, Order arr[], int n) {
+    std::string filename = "sorted" + std::to_string(file_number) + ".txt";
+    std::ofstream outfile(filename);
+
+    outfile << "OID Arrival Duration TimeOut\n";
+    for (int i = 0; i < n; i++) {
+        outfile << arr[i].OID << " "
+                << arr[i].Arrival << " "
+                << arr[i].Duration << " "
+                << arr[i].Timeout << "\n";
+    }
+    outfile.close();
+}
+
 int main() {
   std::string filename;
   Start();
