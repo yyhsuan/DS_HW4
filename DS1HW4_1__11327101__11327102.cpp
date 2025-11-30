@@ -88,10 +88,24 @@ void Print_original(Order* arr, int n) {
   std::cout << std::endl;
 }
 
+void task1() {
+  int file_number;
+  std::cout << "Input a file number (e.g., 401, 402, 403, ...): 401";
+  std::cin >> file_number;
+  filename = "input" + std::to_string(file_number) + ".txt"; // 轉字串
+  std::ifstream infile(filename); // 讀檔
+  if (infile) {
+
+
+  } else {
+    std::cout << "input" << file_number << ".txt does not exist!";
+  }
+ 
+}
 
 int main() {
   std::string filename;
   Start();
-
+ 
   return 0;
 }
