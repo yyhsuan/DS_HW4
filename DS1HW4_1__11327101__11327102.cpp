@@ -8,7 +8,7 @@ class Queue {
   int Abort; // 取消時刻
   int Delay; // 延誤時間
   int Departure; // 完成時刻
-  int CID;
+  int CID = 0; // 廚師編號
   struct Node {
     int OID;
     int Arrival;
