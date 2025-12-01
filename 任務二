@@ -1,0 +1,18 @@
+
+  void onecook(Queue &cook, Queue &cancel, Queue &delay) {
+    Node *temp = head;
+    while ( temp != NULL ) {
+      if ( cook.size() <= 4 ) {
+        if ( cook.now_time <= temp->Arrival ) {
+          cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout);
+          cook.now_time = cook.now_time + temp->Duration;
+        }
+      }
+
+      else {
+        cancel.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout);
+      }
+      dequene();
+      temp = temp->next;
+    }
+  }
