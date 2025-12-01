@@ -4,7 +4,7 @@
 #include <chrono>
 class Queue {
  private:
-  int now_time;
+  int now_time; // 閒置時間
   int Abort; // 取消時刻
   int Delay; // 延誤時間
   int Departure; // 完成時刻
