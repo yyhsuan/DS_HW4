@@ -1,11 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <iomanip>
-#include <ctime>
 #include <chrono>
 class Queue {
  private:
+  int now_time;
   struct Node {
     int OID;
     int Arrival;
