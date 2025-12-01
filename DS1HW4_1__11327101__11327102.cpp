@@ -11,9 +11,9 @@ class Queue {
   int CID = 0; // 廚師編號
   struct Node {
     int OID;
-    int Arrival;
-    int Duration;
-    int Timeout;
+    int Arrival; // 下單時間
+    int Duration; // 製作時間
+    int Timeout;  // 到期時刻
     Node* next;
     Node(int o, int a, int d, int t) {
       OID = o;
@@ -219,6 +219,16 @@ class Queue {
     infile.close();
   }
 
+  void onecook(Queue &cook, Queue &cancel, Queue &delay) {
+    Node *temp = head;
+    while ( cook.size() <= 4 ) {
+      if ( cook.now_time <= temp->Arrival ) {
+        cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout);
+        dequene();
+      }
+    }
+  }
+
 
 }; // end Queue
 
@@ -266,9 +276,33 @@ void task1() {
   return;
 }
 
+void task2() {
+  int file_number;
+  std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
+  std::cin >> file_number;
+  std::string filename = "sorted" + std::to_string(file_number) + ".txt"; // 轉字串
+  std::ifstream infile(filename); // 讀檔
+  Queue q1;
+  if (infile) {
+    q1.Print_original(filename);
+    std::ifstream infile2(filename);
+    q1.load(infile2);
+    int cid = 0;
+    Queue cook;
+    Queue cancel;
+    Queue delay;
+    
+    
+  } else {
+    std::cout << "input" << file_number << ".txt does not exist!";
+  }
+  return;
+}
+
 int main() {
   // 範例 1
   std::string filename;
-  task1();
+  //task1();
+  task2();
   return 0;
 }
