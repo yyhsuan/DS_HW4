@@ -220,6 +220,18 @@ class Queue {
 
 }; // end Queue
 
+struct AbortEntry {
+  int OID; // 訂單編號
+  int Abort; // 取消時刻
+  int Delay; // 延誤時間
+};
+
+struct TimeoutEntry {
+  int OID; // 訂單編號
+  int Departure; // 完成時刻
+  int Delay; // 延誤時間
+};
+
 void task1() {
   int file_number;
   std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
