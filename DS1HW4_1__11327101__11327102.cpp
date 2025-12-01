@@ -5,6 +5,9 @@
 class Queue {
  private:
   int now_time;
+  int Abort; // 取消時刻
+  int Delay; // 延誤時間
+  int Departure; // 完成時刻
   struct Node {
     int OID;
     int Arrival;
@@ -144,7 +147,6 @@ class Queue {
     std::cout << "-----\n";
   }
 
-  // 你要求的 sell_sore2：保留迴圈結構、搬移節點資料（不改 next）
   void sell_sore2() {
     int size = len;
     if (size <= 1) {
