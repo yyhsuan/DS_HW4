@@ -274,7 +274,6 @@ class Queue {
 
     while (temp != NULL) {
         move = false;
-
         // 1. Idle → 跳到 arrival
         if (cook.size() == 0 && cook.now_time < temp->Arrival) {
             cook.now_time = temp->Arrival;
@@ -294,12 +293,16 @@ class Queue {
         }
 
         // 3. 接收訂單（一定合法）
-        cook.enquene(temp->OID, temp->Arrival, temp->Duration,
-                     temp->Timeout, 0, 0, 0, 1);
+        if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
+          cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+          temp = temp->next;
+          move = true;
+        }
 
-        // 接收後 → 這筆輸入已消化，才能前進 temp
-        temp = temp->next;
-        move = true;
+        else {
+          temp = temp->next;
+          move = true;
+        }
 
         // -------------------------------------------------
         // 4. 廚師若空閒 → 做工作
@@ -345,10 +348,14 @@ class Queue {
                     }
 
                     // 新訂單加入 cook queue
-                    cook.enquene(temp->OID, temp->Arrival, temp->Duration,
-                                 temp->Timeout, 0, 0, 0, 0);
+                    if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
+                      cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+                      temp = temp->next;
+                    }
 
-                    temp = temp->next;
+                    else {
+                      temp = temp->next;
+                    }
                 }
 
                 // 時間流逝 1 單位
@@ -394,18 +401,18 @@ class Queue {
 
         // 做最後的訂單
         int startTime = cook.now_time;
-        if (cook.now_time < job->Arrival)
+        if (cook.now_time < job->Arrival) {
             cook.now_time = job->Arrival;
+        }
 
         cook.now_time = cook.now_time + job->Duration;
 
         if (job->Timeout < cook.now_time) {
-            int Departure = cook.now_time;
-            int Delay = startTime - job->Arrival;
-            total_delay = total_delay + Delay;
+          int Departure = cook.now_time;
+          int Delay = startTime - job->Arrival;
+          total_delay = total_delay + Delay;
 
-            Timeout.enquene(job->OID, job->Arrival, job->Duration,
-                            job->Timeout, 0, Delay, Departure, 1);
+          Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, 1);
         }
 
         cook.dequene();
@@ -481,7 +488,6 @@ void task2() {
     Queue cancel;
     Queue delay;
     int total_delay = q1.onecook(cook, cancel, delay);
-    int file_number = 444;
     //cancel.write_file2(file_number, delay);
     cancel.printc();
     std::cout << "[Total Delay]" << total_delay << "\n";
