@@ -330,6 +330,10 @@ class Queue {
             cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
             temp = temp->next;
             move = true;
+            if ( temp->Duration < 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
+              temp = temp->next;
+              move = true;
+            }
           }
 
           else {
@@ -420,7 +424,7 @@ class Queue {
 
         Node *job = cook.head;
 
-        if ( job->Duration < 0 && job->Arrival + job->Duration > job->Timeout ) {
+        if ( job->Duration <= 0 || job->Arrival + job->Duration > job->Timeout ) {
           cook.dequene();
           continue;
         }
