@@ -322,21 +322,21 @@ class Queue {
 
             temp = temp->next;
             move = true;
-            continue;
         }
 
         // 3. 接收訂單（一定合法）
-        if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
-          cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
-          temp = temp->next;
-          move = true;
-        }
+        if ( !move ) {
+          if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
+            cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+            temp = temp->next;
+            move = true;
+          }
 
-        else {
-          temp = temp->next;
-          move = true;
+          else {
+            temp = temp->next;
+            move = true;
+          }
         }
-
         // -------------------------------------------------
         // 4. 廚師若空閒 → 做工作
         // -------------------------------------------------
@@ -420,7 +420,7 @@ class Queue {
 
         Node *job = cook.head;
 
-        if ( job->Duration < 0 || job->Arrival + job->Duration > job->Timeout ) {
+        if ( job->Duration < 0 && job->Arrival + job->Duration > job->Timeout ) {
           cook.dequene();
           continue;
         }
@@ -525,7 +525,7 @@ void task2() {
     Queue delay;
     int total_delay = q1.onecook(cook, cancel, delay);
     int size = q1.size();
-    // cancel.write_file2(file_number, delay, total_delay, size);
+    cancel.write_file2(file_number, delay, total_delay, size);
     
   } else {
     std::cout << "input" << file_number << ".txt does not exist!";
