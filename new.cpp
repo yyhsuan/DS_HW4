@@ -226,8 +226,8 @@ class Queue {
   void onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
     Node *temp = head;
     while ( temp != NULL ) {
-      if ( cook.size() <= 4 ) {
-        if ( cook.size() == 1 ) {
+      if ( cook.size() <= 3 ) {
+        if ( cook.size() == 0 ) {
           if ( temp->Timeout >= cook.now_time ) { // 工作柱列
             if ( cook.now_time <= temp->Arrival ) {
               int getlist = cook.now_time; // 取出訂單時間
