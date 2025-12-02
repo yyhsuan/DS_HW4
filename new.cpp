@@ -281,10 +281,10 @@ class Queue {
 
     outfile << "\n[Total Delay]\n";
     outfile << total << " min.\n";
-
+    std::cout << timeout.len << " len \n";
     outfile << "[Failure Percentage]\n";
     double fail = len + timeout.len;
-    fail = fail / size * 100;
+    fail = (double)fail / (double)size * 100.00;
     fail = floor(fail * 100) / 100;
     outfile << fail << " %\n";
 }
@@ -327,6 +327,7 @@ class Queue {
 
             else {
               temp = temp->next;
+              len--;
               move = true;
             }
         }
@@ -339,12 +340,14 @@ class Queue {
             move = true;
             if ( temp->Duration <= 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
               temp = temp->next;
+              len--;
               move = true;
             }
           }
 
           else {
             temp = temp->next;
+            len--;
             move = true;
           }
         }
@@ -384,6 +387,7 @@ class Queue {
                 while (temp != NULL && temp->Arrival == cook.now_time) {
                     if ( temp->Duration <= 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
                       temp = temp->next;
+                      len--;
                     }
                     // cook queue 滿 → 新訂單取消
                     if (cook.size() == 4) {
@@ -429,6 +433,7 @@ class Queue {
 
         if ( job->Duration <= 0 || job->Arrival + job->Duration > job->Timeout ) {
           cook.dequene();
+          len--;
           continue;
         }
         // timeout → cancel
