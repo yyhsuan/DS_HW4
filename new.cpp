@@ -420,7 +420,7 @@ class Queue {
 
         Node *job = cook.head;
 
-        if ( temp->Duration < 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
+        if ( job->Duration < 0 || job->Arrival + job->Duration > job->Timeout ) {
           cook.dequene();
           continue;
         }
@@ -525,7 +525,7 @@ void task2() {
     Queue delay;
     int total_delay = q1.onecook(cook, cancel, delay);
     int size = q1.size();
-    //cancel.write_file2(file_number, delay, total_delay, size);
+    // cancel.write_file2(file_number, delay, total_delay, size);
     
   } else {
     std::cout << "input" << file_number << ".txt does not exist!";
