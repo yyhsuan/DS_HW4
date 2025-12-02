@@ -267,7 +267,6 @@ class Queue {
         int Delay = 0;
         cancel.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, Abort, Delay, 0, 1);
       }
-      dequene();
       temp = temp->next;
     }
   }
