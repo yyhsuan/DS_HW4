@@ -243,44 +243,52 @@ class Queue {
     }
   }
 
-  void write_file2(std::string file_number, Queue timeout, int total,int size) {
+  void write_file2(std::string file_number, Queue &timeout, int total, int size) {
     std::string filename = "One" + file_number + ".txt";
     std::ofstream outfile(filename);
-    Node *temp = head;
-    Node *timeout_temp = head;
+
+    Node *abort_temp = head;
+    Node *timeout_temp = timeout.head;
+
     int i = 1;
+
     outfile << "\t[Abort List]\n";
     outfile << "\tOID\tCID\tDelay\tAbort\n";
-    while ( temp != NULL ) {
-        outfile << "[" << i << "]\t";
-        outfile << temp->OID << "\t"
-                << temp->CID << "\t"
-                << temp->Delay << "\t"
-                << temp->Abort << "\n";
-        temp = temp->next;
-      i++;
+
+    while (abort_temp != NULL) {
+        outfile << "[" << i << "]\t"
+                << abort_temp->OID << "\t"
+                << abort_temp->CID << "\t"
+                << abort_temp->Delay << "\t"
+                << abort_temp->Abort << "\n";
+        abort_temp = abort_temp->next;
+        i++;
     }
+
     i = 1;
-    outfile << "\t[Timeout List]\n";
+    outfile << "\n\t[Timeout List]\n";
     outfile << "\tOID\tCID\tDelay\tDeparture\n";
-    while ( timeout_temp != NULL ) {
-      outfile << "[" << i << "]\t";
-        outfile << timeout_temp->OID << "\t"
+
+    while (timeout_temp != NULL) {
+        outfile << "[" << i << "]\t"
+                << timeout_temp->OID << "\t"
                 << timeout_temp->CID << "\t"
                 << timeout_temp->Delay << "\t"
                 << timeout_temp->Departure << "\n";
         timeout_temp = timeout_temp->next;
-      i++;
+        i++;
     }
-    outfile << "[Total Delay]\n";
+
+    outfile << "\n[Total Delay]\n";
     outfile << total << " min.\n";
+
     outfile << "[Failure Percentage]\n";
-    double fail = this->size() + timeout.size();
+    double fail = len + timeout.len;
     fail = fail / size * 100;
     fail = floor(fail * 100) / 100;
     outfile << fail << " %\n";
-    return;
-  }
+}
+
 
   void Print_original(std::string filename) {
     std::ifstream infile(filename); // 讀檔
@@ -517,7 +525,7 @@ void task2() {
     Queue delay;
     int total_delay = q1.onecook(cook, cancel, delay);
     int size = q1.size();
-    cancel.write_file2(file_number, delay, total_delay, size);
+    //cancel.write_file2(file_number, delay, total_delay, size);
     
   } else {
     std::cout << "input" << file_number << ".txt does not exist!";
