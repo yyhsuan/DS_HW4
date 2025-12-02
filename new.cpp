@@ -234,7 +234,8 @@ class Queue {
               cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
               cook.now_time = temp->Arrival + temp->Duration;
               if ( cook.now_time > temp->Timeout ) { // 做完超過時間
-                Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+                int delaytime = getlist - temp->Arrival;
+                Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
               }
             }
 
