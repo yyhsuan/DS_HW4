@@ -249,7 +249,7 @@ class Queue {
     Node *temp = head;
     Node *timeout_temp = head;
     int i = 1;
-    outfile << "\t[Abort List]";
+    outfile << "\t[Abort List]\n";
     outfile << "\tOID\tCID\tDelay\tAbort\n";
     while ( temp != NULL ) {
         outfile << "[" << i << "]\t";
@@ -261,7 +261,7 @@ class Queue {
       i++;
     }
     i = 1;
-    outfile << "\t[Timeout List]";
+    outfile << "\t[Timeout List]\n";
     outfile << "\tOID\tCID\tDelay\tDeparture\n";
     while ( timeout_temp != NULL ) {
       outfile << "[" << i << "]\t";
@@ -412,6 +412,10 @@ class Queue {
 
         Node *job = cook.head;
 
+        if ( temp->Duration < 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
+          cook.dequene();
+          continue;
+        }
         // timeout → cancel
         if (job->Timeout < cook.now_time) {
             int Abort = cook.now_time;
