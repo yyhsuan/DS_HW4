@@ -78,50 +78,58 @@ class Queue {
     return len;
   }
   void load(std::ifstream &infile) {
-    char ch;
-    std::string s;
-    std::getline(infile, s);
-    int num = 0;
-    int order = 0;
+    std::string line;
+
+    // 先讀掉標題列
+    std::getline(infile, line);
+
     int o, a, d, t;
-    infile.get(ch);
-    while ( !infile.eof() ) {
-      if ( ch == '\n' ) {
-        order = 0;
-        infile.get(ch);
-      }
 
-      if ( ch == '\t' ) {
-        infile.get(ch);
-      }
-      
-      if ( ch != '\n' ) {
-        order++;
-        num = 0;
-        while ( ch != '\t' && ch != '\n' ) {
-          num = (10 * num) + (ch - '0');
-          infile.get(ch);
+    while (true) {
+        if (!std::getline(infile, line)) break;
+        if (line.empty()) continue;
+
+        int num = 0;
+        int order = 0;
+
+        o = a = d = t = 0;
+
+        for (size_t i = 0; i <= line.size(); i++) {
+            char ch;
+
+            // 最後一欄用 '\t' 作為結束符號（因為 line[i] 已經沒有字）
+            if (i < line.size()) {
+                ch = line[i];
+            } else {
+                ch = '\t';
+            }
+
+            // 數字 => 持續累積
+            if (ch >= '0' && ch <= '9') {
+                num = num * 10 + (ch - '0');
+            } 
+            // 遇到分隔符（tab 或行尾） => 欄位結束
+            else {
+                if (order == 0) {
+                    o = num;
+                } else if (order == 1) {
+                    a = num;
+                } else if (order == 2) {
+                    d = num;
+                } else if (order == 3) {
+                    t = num;
+                }
+
+                if (order == 3) break;  // 四欄都讀好了
+
+                num = 0;
+                order++;
+            }
         }
-      }
 
-      if ( order == 1 ) {
-        o = num;
-      }
-
-      if ( order == 2 ) {
-        a = num;
-      }
-
-      if ( order == 3 ) {
-        d = num;
-      }
-
-      if ( order == 4 ) {
-        t = num;
+        // 讀完四欄，丟進 queue
         enquene(o, a, d, t, 0, 0, 0, 0);
-      }
     }
-    return;
   }
 
   
@@ -198,6 +206,30 @@ class Queue {
     outfile.close();
   }
 
+  void printo() {
+    Node *temp = head;
+    std::cout << "OID CID Delay Departure \n";
+    while ( temp != NULL ) {
+        std::cout << temp->OID << "\t"
+                << temp->Arrival << "\t"
+                << temp->Duration << "\t"
+                << temp->Timeout << "\n";
+        temp = temp->next;
+    }
+  }
+
+  void printc() {
+    Node *temp = head;
+    std::cout << "OID CID Delay Abort \n";
+    while ( temp != NULL ) {
+        std::cout << temp->OID << "\t"
+                << temp->CID << "\t"
+                << temp->Delay << "\t"
+                << temp->Abort << "\n";
+        temp = temp->next;
+    }
+  }
+
   void write_file2(int file_number, Queue timeout) {
     std::string filename = "One" + std::to_string(file_number) + ".txt";
     std::ofstream outfile(filename);
@@ -223,51 +255,109 @@ class Queue {
     infile.close();
   }
 
-  void onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
-    Node *temp = head;
-    while ( temp != NULL ) {
-      if ( cook.size() <= 4 ) {
-        if ( temp->Timeout >= cook.now_time ) { // 工作柱列
-          int getlist = cook.now_time; // 取出訂單時間
-          if ( cook.now_time <= temp->Arrival ) {
-            cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
-            cook.now_time = temp->Arrival + temp->Duration;
-              
-            if ( cook.now_time > temp->Timeout ) { // 做完超過時間
-              int delaytime = getlist - temp->Arrival;
-              Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
-            }
-          else {
-            cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
-            cook.now_time = cook.now_time + temp->Duration;
-            if ( cook.now_time > temp->Timeout ) { // 做完超過時間
-              int delaytime = getlist - temp->Arrival;
-              Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
-            }
-          }
-          cook.dequene();
-          }
-        }
-          else {
-            int Abort = cook.now_time;
-            int Delay = Abort - temp->Arrival;
-            cancel.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, Abort, Delay, 0, 1);
-          }
-        }// 工作柱列
+  int onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
 
-        else {
-          cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 0);
-        }
-      }
+    Node *temp = head;  // 輸入訂單（sorted401.txt）
+    int total_delay = 0;
+    while (temp != NULL) {
 
-      else {
-        int Abort =  temp->Arrival;
-        int Delay = 0;
-        cancel.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, Abort, Delay, 0, 1);
-      }
-      temp = temp->next;
+        // =============================
+        // 1. 若等待佇列空 → IdleTime 跳到 arrival
+        // =============================
+        if (cook.size() == 0 && cook.now_time < temp->Arrival) {
+            cook.now_time = temp->Arrival;
+        }
+
+        // =============================
+        // 2. 等待佇列若已滿(≥3) → 取消（規則 4-1）
+        // =============================
+        if (cook.size() == 3) {
+            int Abort = temp->Arrival;
+            int Delay = 0;
+            cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+                           temp->Timeout, Abort, Delay, 0, 0);
+
+            temp = temp->next;
+            continue;
+        }
+
+        // =============================
+        // 3. 等待佇列未滿 → 將新訂單放進等待佇列
+        // =============================
+        cook.enquene(temp->OID, temp->Arrival, temp->Duration,
+                     temp->Timeout, 0, 0, 0, 0);
+
+        // =============================
+        // 4. 如果廚師此時空閒 → 從等待佇列取1筆來做
+        // =============================
+        while (cook.size() > 0 && cook.now_time <= temp->Arrival) {
+
+            Node *job = cook.head;  // 尚未真正 Dequeue 前的第一筆
+
+            // -------- (A) 取出時逾時 → 取消清單 --------
+            if (job->Timeout < cook.now_time) {
+                int Abort = cook.now_time;
+                int Delay = Abort - job->Arrival;
+                total_delay = total_delay + Delay;
+                cancel.enquene(job->OID, job->Arrival, job->Duration,
+                               job->Timeout, Abort, Delay, 0, 1);
+
+                cook.dequene();
+                continue;
+            }
+
+            // -------- (B) 可以開始製作 --------
+            int startTime = cook.now_time;
+            cook.now_time = cook.now_time + job->Duration;   // 完成時間
+
+            // -------- (C) 做完後逾時 → Timeout 清單 --------
+            if (job->Timeout < cook.now_time) {
+                int Departure = cook.now_time;
+                int Delay = startTime - job->Arrival;
+
+                Timeout.enquene(job->OID, job->Arrival, job->Duration,
+                                job->Timeout, 0, Delay, Departure, 1);
+            }
+
+            // 成功 → 不需記錄
+            cook.dequene();
+        }
+
+        temp = temp->next;
     }
-  }
+
+    // ==========================================
+    // 5. 所有訂單讀完後，處理等待佇列內剩餘訂單
+    // ==========================================
+    while (cook.size() > 0) {
+
+        Node *job = cook.head;
+
+        if (job->Timeout < cook.now_time) {
+            int Abort = cook.now_time;
+            int Delay = Abort - job->Arrival;
+
+            cancel.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, Abort, Delay, 0, 1);
+
+            cook.dequene();
+            continue;
+        }
+
+        int startTime = cook.now_time;
+        cook.now_time += job->Duration;
+
+        if (job->Timeout < cook.now_time) {
+            int Departure = cook.now_time;
+            int Delay = startTime - job->Arrival;
+            total_delay = total_delay + Delay;
+            Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, 1);
+        }
+
+        cook.dequene();
+    }
+    return total_delay;
+}
+
 
 
 }; // end Queue
@@ -324,16 +414,18 @@ void task2() {
   std::ifstream infile(filename); // 讀檔
   Queue q1;
   if (infile) {
-    q1.Print_original(filename);
+    //q1.Print_original(filename);
     std::ifstream infile2(filename);
     q1.load(infile2);
-    int cid = 0;
+    // q1.printo();
     Queue cook;
     Queue cancel;
     Queue delay;
-    q1.onecook(cook, cancel, delay);
+    int total_delay = q1.onecook(cook, cancel, delay);
     int file_number = 444;
-    cancel.write_file2(file_number, delay);
+    //cancel.write_file2(file_number, delay);
+    cancel.printc();
+    std::cout << "[Total Delay]" << total_delay;
 
     
   } else {
