@@ -1,0 +1,81 @@
+  // 安全、簡潔的 onecook 實作（替換你原本的 onecook）
+  int onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
+    Node *input = head;            // 來源訂單串列（sorted 的 linked list）
+    int total_delay = 0;
+
+    // 確保 cook.now_time 初始 (你在類別裡有 now_time 成員)
+    // 注意：因為 onecook 是 Queue 的 member function，所以可以存取 cook.now_time
+    while (input != NULL || cook.size() > 0) {
+      // 若有 input 且 cook 空且 idle < next arrival -> 跳至 arrival
+      if (input != NULL && cook.size() == 0 && cook.now_time < input->Arrival) {
+        cook.now_time = input->Arrival;
+      }
+
+      // 把所有到達時間 <= cook.now_time 的訂單加入 cook（若滿就寫入 cancel）
+      while (input != NULL && input->Arrival <= cook.now_time) {
+        if (cook.size() >= 3) {
+          // 1) 抵達時佇列已滿 -> 立即取消，Abort = Arrival, Delay = 0
+          cancel.enquene(input->OID, input->Arrival, input->Duration,
+                         input->Timeout, input->Arrival, 0, 0, 0);
+          input = input->next;
+        } else {
+          // 放入等待佇列（Abort/Delay/Departure 初值留 0，CID 用 0）
+          cook.enquene(input->OID, input->Arrival, input->Duration,
+                       input->Timeout, 0, 0, 0, 0);
+          input = input->next;
+        }
+      }
+
+      // 如果 cook 為空（且可能還有 future input），就繼續 loop 讓 idle 跳到下一個 arrival
+      if (cook.size() == 0) {
+        // 若沒有 input 則結束
+        if (input == NULL) break;
+        // 否則讓 while 的起頭把 idle 跳到 input->Arrival（下一輪）
+        continue;
+      }
+
+      // 取出等待佇列的第一筆（但先不 dequene，先讀資料）
+      Node *job = cook.head;
+      if (job == NULL) break; // safety
+
+      // (A) 從佇列取出時發現逾時 -> Abort (Abort = idle, Delay = Abort - Arrival)
+      if (job->Timeout < cook.now_time) {
+        int AbortT = cook.now_time;
+        int Delay = AbortT - job->Arrival;
+        total_delay += Delay;
+        cancel.enquene(job->OID, job->Arrival, job->Duration, job->Timeout,
+                       AbortT, Delay, 0, 0);
+        cook.dequene();
+        continue; // 重新 loop 處理下一筆
+      }
+
+      // (B) 可以開始製作
+      int start = cook.now_time;
+      int finish = start + job->Duration;
+
+      // 在製作過程中，可能有新的訂單到達（arrival between start and finish）
+      // 但根據題目，廚師在製作期間不知道佇列內的 duration，所以我們只在完成後更新 idle
+      // 我們已經把所有 arrival <= cook.now_time 的訂單放入 cook，接下來直接模擬做完
+      // 若在做的過程中新的訂單到達（arrival <= finish），下一輪 while 的開頭會把它們 enqueued
+
+      // (C) 完成時才發現逾時 -> Timeout
+      if (job->Timeout < finish) {
+        int Departure = finish;
+        int Delay = start - job->Arrival; // 規則說 Delay = 廚師取出時的 idle - Arrival
+        total_delay += Delay;
+        Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout,
+                        0, Delay, Departure, 0);
+        cook.now_time = finish;
+        cook.dequene();
+        continue;
+      }
+
+      // (D) 正常完成且未逾時（不用記錄）
+      cook.now_time = finish;
+      cook.dequene();
+      // 迴圈回到開頭，處理在這段時間到達的新訂單或下一筆等待
+    } // end while
+
+    // 所有處理完畢後回傳 total delay
+    return total_delay;
+  }
