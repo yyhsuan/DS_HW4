@@ -283,8 +283,13 @@ class Queue {
           int Abort = temp->Arrival;
           int Delay = 0;
           cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
-          temp->Timeout, Abort, Delay, 0, 0);          
+          temp->Timeout, Abort, Delay, 0, 0);
+          if ( temp == NULL ) {
+            move = true;
+            break;
+          }          
           temp = temp->next;
+          move = true;
           continue;
         }
 
@@ -317,23 +322,32 @@ class Queue {
             }
             int timeout_time = pp->Timeout;
             int duration_time = pp->Duration;
+            if ( temp == NULL ) {
+              move = true;
+              break;
+            }
             temp = temp->next;
             for ( int i = 0; i < duration_time; i++ ) {
               while ( temp != NULL && temp->Arrival == cook.now_time ) {
-                std::cout << temp->Arrival << " temp->Arrival\n";
-                std::cout << cook.now_time << " cook.now_time\n";
                 if (cook.size() == 4) {
                   int Abort = temp->Arrival;
                   int Delay = 0;
                   cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
                   temp->Timeout, Abort, Delay, 0, 0);
-                    
+                  if ( temp == NULL ) {
+                    move = true;
+                    break;
+                  }  
                   temp = temp->next;
                   move = true;
                   break;
                 }
                   
                 cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 0);
+                if ( temp == NULL ) {
+                  move = true;
+                  break;
+                }
                 temp = temp->next;
                 move = true;
               }
@@ -342,7 +356,6 @@ class Queue {
               }
               cook.now_time = cook.now_time + 1;
             }
-
             // -------- (C) 做完後逾時 → Timeout 清單 --------
             if (job->Timeout < cook.now_time) {
                 int Departure = cook.now_time;
@@ -350,10 +363,19 @@ class Queue {
 
                 Timeout.enquene(job->OID, job->Arrival, job->Duration,
                                 job->Timeout, 0, Delay, Departure, 1);
+                if ( temp == NULL ) {
+                  move = true;
+                  break;
+                }
+                temp = temp->next;
             }
 
             // 成功 → 不需記錄
             cook.dequene();
+        }
+        if ( temp == NULL ) {
+          move = true;
+          break;
         }
         if ( !move ) {
           temp = temp->next;
