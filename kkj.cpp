@@ -268,11 +268,11 @@ class Queue {
   }
 
   int onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
-
+    bool move = false;
     Node *temp = head;  // 輸入訂單（sorted401.txt）
     int total_delay = 0;
     while (temp != NULL) {
-
+        move = false;
         // =============================
         // 1. 若等待佇列空 → IdleTime 跳到 arrival
         // =============================
@@ -289,8 +289,7 @@ class Queue {
         }
 
         cook.enquene(temp->OID, temp->Arrival, temp->Duration,
-                temp->Timeout, 0, 0, 0, 1);
-                  
+                temp->Timeout, 0, 0, 0, 1);          
         // =============================
         // 4. 如果廚師此時空閒 → 從等待佇列取1筆來做
         // =============================
@@ -320,31 +319,23 @@ class Queue {
             int duration_time = pp->Duration;
             temp = temp->next;
             for ( int i = 0; i < duration_time; i++ ) {
-              
-              // 中途逾時 → 取消清單
-              if ( cook.now_time > timeout_time ) {
-                int Abort = cook.now_time;
-                int Delay = startTime - job->Arrival;
-                
-                Timeout.enquene(job->OID, job->Arrival, job->Duration,
-                  job->Timeout, Abort, Delay, 0, 1);
-                  break;
-              }
-              if ( temp->Arrival == cook.now_time ) {
-              
-                if (cook.size() == 3) {
+              while ( temp != NULL && temp->Arrival == cook.now_time ) {
+                std::cout << temp->Arrival << " temp->Arrival\n";
+                std::cout << cook.now_time << " cook.now_time\n";
+                if (cook.size() == 4) {
                   int Abort = temp->Arrival;
                   int Delay = 0;
                   cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
-                    temp->Timeout, Abort, Delay, 0, 0);
+                  temp->Timeout, Abort, Delay, 0, 0);
                     
-                    temp = temp->next;
-                    continue;
+                  temp = temp->next;
+                  move = true;
+                  break;
                 }
                   
-                cook.enquene(temp->OID, temp->Arrival, temp->Duration,
-                    temp->Timeout, 0, 0, 0, 0);
+                cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 0);
                 temp = temp->next;
+                move = true;
               }
               if ( temp == NULL ) {
                 break;
@@ -354,7 +345,6 @@ class Queue {
 
             // -------- (C) 做完後逾時 → Timeout 清單 --------
             if (job->Timeout < cook.now_time) {
-                std::cout << "dd\n";
                 int Departure = cook.now_time;
                 int Delay = startTime - job->Arrival;
 
@@ -365,8 +355,9 @@ class Queue {
             // 成功 → 不需記錄
             cook.dequene();
         }
-
-        temp = temp->next;
+        if ( !move ) {
+          temp = temp->next;
+        }
     }
 
     // ==========================================
