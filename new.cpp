@@ -191,8 +191,8 @@ class Queue {
     }
   }
 
-  void write_file(int file_number) {
-    std::string filename = "sorted" + std::to_string(file_number) + ".txt";
+  void write_file(std::string file_number) {
+    std::string filename = "sorted" + file_number + ".txt";
     std::ofstream outfile(filename);
     Node *temp = head;
     outfile << "OID Arrival Duration TimeOut\n";
@@ -230,8 +230,20 @@ class Queue {
     }
   }
 
-  void write_file2(int file_number, Queue timeout) {
-    std::string filename = "One" + std::to_string(file_number) + ".txt";
+  void printd() {
+    Node *temp = head;
+    std::cout << "OID CID Delay Departure \n";
+    while ( temp != NULL ) {
+        std::cout << temp->OID << "\t"
+                << temp->CID << "\t"
+                << temp->Delay << "\t"
+                << temp->Departure << "\n";
+        temp = temp->next;
+    }
+  }
+
+  void write_file2(std::string file_number, Queue timeout) {
+    std::string filename = "One" + file_number + ".txt";
     std::ofstream outfile(filename);
     Node *temp = head;
     outfile << "OID Delay Abort TimeOut\n";
@@ -256,44 +268,37 @@ class Queue {
   }
 
   int onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
-
+    bool move = false;
     Node *temp = head;  // 輸入訂單（sorted401.txt）
     int total_delay = 0;
     while (temp != NULL) {
-
+        move = false;
         // =============================
         // 1. 若等待佇列空 → IdleTime 跳到 arrival
         // =============================
         if (cook.size() == 0 && cook.now_time < temp->Arrival) {
             cook.now_time = temp->Arrival;
         }
-
-        // =============================
-        // 2. 等待佇列若已滿(≥3) → 取消（規則 4-1）
-        // =============================
         if (cook.size() == 3) {
-            int Abort = temp->Arrival;
-            int Delay = 0;
-            cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
-                           temp->Timeout, Abort, Delay, 0, 0);
-
-            temp = temp->next;
-            continue;
+          int Abort = temp->Arrival;
+          int Delay = 0;
+          cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+          temp->Timeout, Abort, Delay, 0, 0);          
+          temp = temp->next;
+          move = true;
+          continue;
         }
 
-        // =============================
-        // 3. 等待佇列未滿 → 將新訂單放進等待佇列
-        // =============================
         cook.enquene(temp->OID, temp->Arrival, temp->Duration,
-                     temp->Timeout, 0, 0, 0, 0);
-
+                temp->Timeout, 0, 0, 0, 1);          
         // =============================
         // 4. 如果廚師此時空閒 → 從等待佇列取1筆來做
         // =============================
-        while (cook.size() > 0 && cook.now_time <= temp->Arrival) {
-
+        while (cook.size() > 0 &&  (cook.now_time <= temp->Arrival) ) {
+            //std::cout << cook.size() << "cook.size()\n";
             Node *job = cook.head;  // 尚未真正 Dequeue 前的第一筆
-
+            cook.printo();
+            std::cout << "fffff\n";
             // -------- (A) 取出時逾時 → 取消清單 --------
             if (job->Timeout < cook.now_time) {
                 int Abort = cook.now_time;
@@ -308,8 +313,35 @@ class Queue {
 
             // -------- (B) 可以開始製作 --------
             int startTime = cook.now_time;
-            cook.now_time = cook.now_time + job->Duration;   // 完成時間
-
+            Node *pp = cook.head;
+            if (cook.now_time < temp->Arrival) {
+                cook.now_time = temp->Arrival;  // 廚師忙到 temp->Arrival 時間點
+            }
+            int timeout_time = pp->Timeout;
+            int duration_time = pp->Duration;
+            temp = temp->next;
+            for ( int i = 0; i < duration_time; i++ ) {
+              if ( temp != NULL && temp->Arrival == cook.now_time ) {
+                if (cook.size() == 4) {
+                  int Abort = temp->Arrival;
+                  int Delay = 0;
+                  cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+                  temp->Timeout, Abort, Delay, 0, 0);
+                    
+                  temp = temp->next;
+                  move = true;
+                  break;
+                }
+                  
+                cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 0);
+                temp = temp->next;
+                move = true;
+              }
+              if ( temp == NULL ) {
+                break;
+              }
+              cook.now_time = cook.now_time + 1;
+            }
             // -------- (C) 做完後逾時 → Timeout 清單 --------
             if (job->Timeout < cook.now_time) {
                 int Departure = cook.now_time;
@@ -317,20 +349,22 @@ class Queue {
 
                 Timeout.enquene(job->OID, job->Arrival, job->Duration,
                                 job->Timeout, 0, Delay, Departure, 1);
+                temp = temp->next;
+                move = true;
             }
 
             // 成功 → 不需記錄
             cook.dequene();
         }
-
-        temp = temp->next;
+        if ( !move ) {
+          temp = temp->next;
+        }
     }
 
     // ==========================================
     // 5. 所有訂單讀完後，處理等待佇列內剩餘訂單
     // ==========================================
     while (cook.size() > 0) {
-
         Node *job = cook.head;
 
         if (job->Timeout < cook.now_time) {
@@ -344,7 +378,10 @@ class Queue {
         }
 
         int startTime = cook.now_time;
-        cook.now_time += job->Duration;
+        if (cook.now_time < job->Arrival) {
+          cook.now_time = job->Arrival;  // 廚師忙到 job->Arrival 時間點
+        }
+        cook.now_time = cook.now_time + job->Duration;
 
         if (job->Timeout < cook.now_time) {
             int Departure = cook.now_time;
@@ -375,10 +412,11 @@ struct TimeoutEntry {
 };
 
 void task1() {
-  int file_number;
+  std::string file_number;
   std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
   std::cin >> file_number;
-  std::string filename = "input" + std::to_string(file_number) + ".txt"; // 轉字串
+  getchar();
+  std::string filename = "input" + file_number + ".txt"; // 轉字串
   std::ifstream infile(filename); // 讀檔
   Queue q1;
   if (infile) {
@@ -407,10 +445,11 @@ void task1() {
 }
 
 void task2() {
-  int file_number;
+  std::string file_number;
   std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
   std::cin >> file_number;
-  std::string filename = "sorted" + std::to_string(file_number) + ".txt"; // 轉字串
+  getchar();
+  std::string filename = "sorted" + file_number + ".txt"; // 轉字串
   std::ifstream infile(filename); // 讀檔
   Queue q1;
   if (infile) {
@@ -426,7 +465,7 @@ void task2() {
     //cancel.write_file2(file_number, delay);
     cancel.printc();
     std::cout << "[Total Delay]" << total_delay;
-
+    delay.printd();
     
   } else {
     std::cout << "input" << file_number << ".txt does not exist!";
@@ -434,10 +473,67 @@ void task2() {
   return;
 }
 
+void Start() {
+  std::cout << "*** (^_^) Data Structure (^o^) ***" << std::endl;
+  std::cout << "** Simulate FIFO Queues by SQF ***" << std::endl;
+std::cout << "* 0. Quit                        *" << std::endl;
+std::cout << "* 1. Sort a file                 *" << std::endl;
+std::cout << "* 2. Simulate one FIFO queue     *" << std::endl;
+std::cout << "* 3. Simulate two queues by SQF  *" << std::endl;
+std::cout << "* 4. Simulate some queues by SQF *" << std::endl;
+std::cout << "**********************************" << std::endl;
+  std::cout << "Input a command(0, 1, 2, 3, 4): ";
+}
+
 int main() {
-  // 範例 1
   std::string filename;
-  //task1();
-  task2();
+  char ch;
+  int command = 0;
+  Start(); // 印選單
+  while (true) {
+    command = 0;
+    bool has_digit = false; // 已經有數字
+    bool invalid = false; // 非法輸入
+    bool aaaaa = false;
+    while ((ch = getchar()) != '\n') {
+      if (ch == ' ' || ch == '\t') { // 跳過空白跟tab
+        continue;
+      } else if (ch >= '0' && ch <= '4') {
+        if (has_digit) {
+          invalid = true; // 多個數字
+        } else {
+          command = ch - '0';
+          has_digit = true;
+        }
+      } else if (ch >= '5' && ch <= '9') {
+        has_digit = true;
+      } else { // 非法字元
+        aaaaa = true;
+      }
+    }
+
+    if (aaaaa) {
+      return 0;
+    }
+
+    if (invalid) {
+      std::cout << "Command does not exist!" << std::endl << std::endl;
+      Start();
+      continue;
+    }
+    if (command == 0) {
+      return 0;
+    }
+    if (command == 1) {
+      task1();
+    } else if (command == 2) {
+      task2();
+    } else if (command == 3) {
+      //task3(filename);
+    } else if (command == 4) {
+      //task4();
+    }
+    Start();
+  }
   return 0;
 }
