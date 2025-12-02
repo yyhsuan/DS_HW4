@@ -314,14 +314,21 @@ class Queue {
 
         // 2. cook queue 滿（size==3）→ 取消
         if (cook.size() == 3) {
-            int Abort = temp->Arrival;
-            int Delay = 0;
-            total_delay = total_delay + Delay;
-            cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+            if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
+              int Abort = temp->Arrival;
+              int Delay = 0;
+              total_delay = total_delay + Delay;
+              cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
                            temp->Timeout, Abort, Delay, 0, 0);
 
-            temp = temp->next;
-            move = true;
+              temp = temp->next;
+              move = true;
+            }
+
+            else {
+              temp = temp->next;
+              move = true;
+            }
         }
 
         // 3. 接收訂單（一定合法）
@@ -330,7 +337,7 @@ class Queue {
             cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
             temp = temp->next;
             move = true;
-            if ( temp->Duration < 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
+            if ( temp->Duration <= 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
               temp = temp->next;
               move = true;
             }
@@ -375,7 +382,9 @@ class Queue {
 
                 // 新訂單到達
                 while (temp != NULL && temp->Arrival == cook.now_time) {
-
+                    if ( temp->Duration <= 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
+                      temp = temp->next;
+                    }
                     // cook queue 滿 → 新訂單取消
                     if (cook.size() == 4) {
                         cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
@@ -385,14 +394,8 @@ class Queue {
                     }
 
                     // 新訂單加入 cook queue
-                    if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
-                      cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
-                      temp = temp->next;
-                    }
-
-                    else {
-                      temp = temp->next;
-                    }
+                    cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+                    temp = temp->next;
                 }
 
                 // 時間流逝 1 單位
