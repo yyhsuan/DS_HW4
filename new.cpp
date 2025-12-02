@@ -284,6 +284,7 @@ class Queue {
         if (cook.size() == 3) {
             int Abort = temp->Arrival;
             int Delay = 0;
+            total_delay = total_delay + Delay;
             cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
                            temp->Timeout, Abort, Delay, 0, 0);
 
@@ -303,9 +304,7 @@ class Queue {
         // -------------------------------------------------
         // 4. 廚師若空閒 → 做工作
         // -------------------------------------------------
-        while (cook.size() > 0 &&
-               temp != NULL &&  // ← 必加，避免 temp->Arrival crash
-               cook.now_time <= temp->Arrival) {
+        while (cook.size() > 0 && temp != NULL && cook.now_time <= temp->Arrival) {
 
             Node *job = cook.head;
 
@@ -313,7 +312,7 @@ class Queue {
             if (job->Timeout < cook.now_time) {
                 int Abort = cook.now_time;
                 int Delay = Abort - job->Arrival;
-                total_delay += Delay;
+                total_delay = total_delay + Delay;
 
                 cancel.enquene(job->OID, job->Arrival, job->Duration,
                                job->Timeout, Abort, Delay, 0, 1);
@@ -325,8 +324,9 @@ class Queue {
             // (B) 開始做菜
             int startTime = cook.now_time;
 
-            if (cook.now_time < job->Arrival)
-                cook.now_time = job->Arrival;
+            if (cook.now_time < job->Arrival) {
+              cook.now_time = job->Arrival;
+            }
 
             int duration_time = job->Duration;
 
@@ -359,18 +359,18 @@ class Queue {
             if (job->Timeout < cook.now_time) {
                 int Departure = cook.now_time;
                 int Delay = startTime - job->Arrival;
-                total_delay += Delay;
+                total_delay = total_delay + Delay;
 
-                Timeout.enquene(job->OID, job->Arrival, job->Duration,
-                                job->Timeout, 0, Delay, Departure, 1);
+                Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, 1);
             }
 
             cook.dequene();
         }
 
         // 若這筆 temp 在這圈沒被動過 → 移到下一筆
-        if (!move && temp != NULL)
-            temp = temp->next;
+        if (!move && temp != NULL) {
+          temp = temp->next;
+        }
     }
 
     // -------------------------------------------------
@@ -384,7 +384,7 @@ class Queue {
         if (job->Timeout < cook.now_time) {
             int Abort = cook.now_time;
             int Delay = Abort - job->Arrival;
-
+            total_delay = total_delay + Delay;
             cancel.enquene(job->OID, job->Arrival, job->Duration,
                            job->Timeout, Abort, Delay, 0, 1);
 
@@ -397,12 +397,12 @@ class Queue {
         if (cook.now_time < job->Arrival)
             cook.now_time = job->Arrival;
 
-        cook.now_time += job->Duration;
+        cook.now_time = cook.now_time + job->Duration;
 
         if (job->Timeout < cook.now_time) {
             int Departure = cook.now_time;
             int Delay = startTime - job->Arrival;
-            total_delay += Delay;
+            total_delay = total_delay + Delay;
 
             Timeout.enquene(job->OID, job->Arrival, job->Duration,
                             job->Timeout, 0, Delay, Departure, 1);
