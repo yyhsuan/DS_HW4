@@ -1,0 +1,180 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <iomanip>
+
+struct Order {
+    int OID;
+    int Arrival;
+    int Duration;
+    int Timeout;
+};
+
+struct AbortEntry {
+    int OID;
+    int CID;
+    int Delay;
+    int Abort;
+};
+
+struct TimeoutEntry {
+    int OID;
+    int CID;
+    int Delay;
+    int Departure;
+};
+
+// ---------------------------
+// 手動 pop-front，不用 erase
+// ---------------------------
+Order pop_front(std::vector<Order>& q) {
+    Order front = q[0];
+    int len = q.size();
+    for (int i = 1; i < len; i++) {
+        q[i - 1] = q[i];
+    }
+    q.pop_back();  // 刪掉最後一個 (可用)
+    return front;
+}
+
+void simulate_one_queue(std::vector<Order>& orders, const std::string& outfilename) {
+    std::vector<Order> waiting_queue; // 最多三筆
+    std::vector<AbortEntry> abort_list;
+    std::vector<TimeoutEntry> timeout_list;
+
+    int cook_now = 0;        // 廚師目前可開始的時間
+    int total_delay = 0;
+    int total_orders = orders.size();
+    int CID = 1;
+
+    // 逐筆處理訂單
+    for (int i = 0; i < orders.size(); i++) {
+        Order ord = orders[i];
+
+        // 先處理佇列中已到可處理的訂單
+        while (waiting_queue.size() > 0 && cook_now <= ord.Arrival) {
+
+            Order front = pop_front(waiting_queue);
+            int pick_time = cook_now;
+            if (pick_time < front.Arrival) pick_time = front.Arrival;
+
+            if (pick_time > front.Timeout) {
+                int delay = pick_time - front.Arrival;
+                abort_list.push_back({front.OID, CID, delay, pick_time});
+                total_delay += delay;
+                cook_now = pick_time;
+            }
+            else {
+                cook_now = pick_time + front.Duration;
+                if (cook_now > front.Timeout) {
+                    int delay = pick_time - front.Arrival;
+                    timeout_list.push_back({front.OID, CID, delay, cook_now});
+                    total_delay += delay;
+                }
+            }
+        }
+
+        // 佇列滿 → Abort
+        if (waiting_queue.size() >= 3) {
+            abort_list.push_back({ord.OID, 0, 0, ord.Arrival});
+        }
+        else {
+            waiting_queue.push_back(ord);
+        }
+    }
+
+    // 處理剩下等待的訂單
+    while (waiting_queue.size() > 0) {
+
+        Order front = pop_front(waiting_queue);
+        int pick_time = cook_now;
+        if (pick_time < front.Arrival) pick_time = front.Arrival;
+
+        if (pick_time > front.Timeout) {
+            int delay = pick_time - front.Arrival;
+            abort_list.push_back({front.OID, CID, delay, pick_time});
+            total_delay += delay;
+            cook_now = pick_time;
+        }
+        else {
+            cook_now = pick_time + front.Duration;
+            if (cook_now > front.Timeout) {
+                int delay = pick_time - front.Arrival;
+                timeout_list.push_back({front.OID, CID, delay, cook_now});
+                total_delay += delay;
+            }
+        }
+    }
+
+    // 計算失敗比例
+    double fail_percent = 0.0;
+    if (total_orders > 0) {
+        fail_percent = (abort_list.size() + timeout_list.size()) * 100.0 / total_orders;
+    }
+
+    // -----------------------
+    // 輸 出 到 檔 案
+    // -----------------------
+    std::ofstream outfile(outfilename.c_str());
+
+    outfile << "[Abort List]\n";
+    outfile << "OID CID Delay Abort\n";
+    for (int i = 0; i < abort_list.size(); i++) {
+        outfile << "[" << i + 1 << "] "
+                << abort_list[i].OID << " "
+                << abort_list[i].CID << " "
+                << abort_list[i].Delay << " "
+                << abort_list[i].Abort << "\n";
+    }
+
+    outfile << "[Timeout List]\n";
+    outfile << "OID CID Delay Departure\n";
+    for (int i = 0; i < timeout_list.size(); i++) {
+        outfile << "[" << i + 1 << "] "
+                << timeout_list[i].OID << " "
+                << timeout_list[i].CID << " "
+                << timeout_list[i].Delay << " "
+                << timeout_list[i].Departure << "\n";
+    }
+
+    outfile << "[Total Delay]\n";
+    outfile << total_delay << " min.\n";
+
+    outfile << "[Failure Percentage]\n";
+    outfile << std::fixed << std::setprecision(2) << fail_percent << "%\n";
+
+    outfile.close();
+}
+
+// ---------------------------
+// main()
+// ---------------------------
+int main() {
+    std::ifstream infile("sorted401.txt");
+    if (!infile) {
+        std::cout << "Cannot open sorted401.txt\n";
+        return 1;
+    }
+
+    std::vector<Order> orders;
+    std::string line;
+    std::getline(infile, line); // skip header
+
+    while (std::getline(infile, line)) {
+        if (line == "") continue;
+
+        Order ord;
+        sscanf(line.c_str(), "%d\t%d\t%d\t%d",
+            &ord.OID, &ord.Arrival, &ord.Duration, &ord.Timeout);
+
+        orders.push_back(ord);
+    }
+
+    infile.close();
+
+    simulate_one_queue(orders, "one401.txt");
+    std::cout << "Simulation completed: one401.txt generated.\n";
+
+    return 0;
+}
