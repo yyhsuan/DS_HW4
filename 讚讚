@@ -1,0 +1,86 @@
+void onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
+
+    // ====== STEP 1：處理外部訂單 ====== //
+    Queue input = *this;   // 複製目前 Queue（this = 原始輸入）
+    Node *temp = input.head;
+
+    while (temp != nullptr) {
+
+        // Case 1：cook queue 已滿 → 直接取消
+        if (cook.size() >= 4) {
+            cancel.enquene(
+                temp->OID, temp->Arrival, temp->Duration, temp->Timeout,
+                temp->Arrival, 0, 0, 1
+            );
+            temp = temp->next;
+            continue;
+        }
+
+        // Case 2：cook queue 空 → 直接開始製作
+        if (cook.size() == 0) {
+
+            int start = std::max(cook.now_time, temp->Arrival);
+            int finish = start + temp->Duration;
+            int delay = start - temp->Arrival;
+
+            cook.enquene(
+                temp->OID, temp->Arrival, temp->Duration, temp->Timeout,
+                start, delay, finish, 1
+            );
+
+            cook.now_time = finish;
+
+            // 超時 → Timeout queue
+            if (finish > temp->Timeout) {
+                Timeout.enquene(
+                    temp->OID, temp->Arrival, temp->Duration, temp->Timeout,
+                    start, delay, finish, 1
+                );
+            }
+
+            temp = temp->next;
+            continue;
+        }
+
+        // Case 3：有人在做 → 先排隊
+        cook.enquene(
+            temp->OID, temp->Arrival, temp->Duration, temp->Timeout,
+            0, 0, 0, 0
+        );
+
+        temp = temp->next;
+    }
+
+    // ====== STEP 2：cook queue 中「排隊者」開始依序 cooking ====== //
+    while (cook.size() > 0) {
+
+        Node *job = cook.head;  // 目前排隊最前面的人（尚未處理）
+
+        // 若 job 已經有 Departure → 表示前面 already cooked
+        if (job->Departure > 0) {
+            cook.dequene();
+            continue;
+        }
+
+        // 開始做這筆工作
+        int start = std::max(cook.now_time, job->Arrival);
+        int finish = start + job->Duration;
+        int delay = start - job->Arrival;
+
+        job->Abort = start;
+        job->Delay = delay;
+        job->Departure = finish;
+        job->CID = 1;
+
+        cook.now_time = finish;
+
+        if (finish > job->Timeout) {
+            Timeout.enquene(
+                job->OID, job->Arrival, job->Duration, job->Timeout,
+                start, delay, finish, 1
+            );
+        }
+
+        cook.dequene();
+    }
+}
