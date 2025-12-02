@@ -227,29 +227,27 @@ class Queue {
     Node *temp = head;
     while ( temp != NULL ) {
       if ( cook.size() <= 4 ) {
-        if ( cook.size() == 1 ) {
-          if ( temp->Timeout >= cook.now_time ) { // 工作柱列
-            int getlist = cook.now_time; // 取出訂單時間
-            if ( cook.now_time <= temp->Arrival ) {
-              cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
-              cook.now_time = temp->Arrival + temp->Duration;
-              if ( cook.now_time > temp->Timeout ) { // 做完超過時間
-                int delaytime = getlist - temp->Arrival;
-                Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
-              }
+        if ( temp->Timeout >= cook.now_time ) { // 工作柱列
+          int getlist = cook.now_time; // 取出訂單時間
+          if ( cook.now_time <= temp->Arrival ) {
+            cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+            cook.now_time = temp->Arrival + temp->Duration;
+              
+            if ( cook.now_time > temp->Timeout ) { // 做完超過時間
+              int delaytime = getlist - temp->Arrival;
+              Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
             }
-
-            else {
-              cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
-              cook.now_time = cook.now_time + temp->Duration;
-              if ( cook.now_time > temp->Timeout ) { // 做完超過時間
-                int delaytime = getlist - temp->Arrival;
-                Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
-              }
+          else {
+            cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+            cook.now_time = cook.now_time + temp->Duration;
+            if ( cook.now_time > temp->Timeout ) { // 做完超過時間
+              int delaytime = getlist - temp->Arrival;
+              Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
             }
-            cook.dequene();
           }
-          
+          cook.dequene();
+          }
+        }
           else {
             int Abort = cook.now_time;
             int Delay = Abort - temp->Arrival;
