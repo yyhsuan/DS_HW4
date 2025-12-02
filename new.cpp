@@ -230,6 +230,7 @@ class Queue {
         if ( cook.size() == 1 ) {
           if ( temp->Timeout >= cook.now_time ) { // 工作柱列
             if ( cook.now_time <= temp->Arrival ) {
+              int getlist = cook.now_time; // 取出訂單時間
               cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
               cook.now_time = temp->Arrival + temp->Duration;
               if ( cook.now_time > temp->Timeout ) { // 做完超過時間
@@ -241,7 +242,8 @@ class Queue {
               cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
               cook.now_time = cook.now_time + temp->Duration;
               if ( cook.now_time > temp->Timeout ) { // 做完超過時間
-                Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+                int delaytime = getlist - temp->Arrival;
+                Timeout.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, delaytime, cook.now_time, 1);
               }
             }
             cook.dequene();
