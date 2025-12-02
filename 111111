@@ -1,0 +1,192 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <iomanip>
+
+// ---------------- Queue class from previous整理 ----------------
+class Queue {
+private:
+    int now_time = 0; // 廚師可開始時間
+
+    struct Node {
+        int OID;
+        int Arrival;
+        int Duration;
+        int Timeout;
+        int Abort;
+        int Delay;
+        int Departure;
+        int CID;
+        Node* next;
+        Node(int o, int a, int d, int t, int abort, int delay, int departure, int cid)
+            : OID(o), Arrival(a), Duration(d), Timeout(t), Abort(abort),
+              Delay(delay), Departure(departure), CID(cid), next(nullptr) {}
+    };
+
+    Node* head;
+    Node* tail;
+    int len;
+
+public:
+    Queue() : head(nullptr), tail(nullptr), len(0) {}
+    ~Queue() { while (!empty()) dequene(); }
+
+    bool empty() { return head == nullptr; }
+
+    void enquene(int o, int a, int d, int t, int abort, int delay, int departure, int cid) {
+        Node* n = new Node(o, a, d, t, abort, delay, departure, cid);
+        if (tail) tail->next = n;
+        tail = n;
+        if (!head) head = n;
+        len++;
+    }
+
+    void dequene() {
+        if (!head) return;
+        Node* t = head;
+        head = head->next;
+        if (!head) tail = nullptr;
+        delete t;
+        len--;
+    }
+
+    int size() { return len; }
+
+    void load(std::ifstream &infile) {
+        std::string line;
+        std::getline(infile, line); // skip header
+        while (std::getline(infile, line)) {
+            if (line.empty()) continue;
+            int o, a, d, t;
+            sscanf(line.c_str(), "%d\t%d\t%d\t%d", &o, &a, &d, &t);
+            enquene(o, a, d, t, 0, 0, 0, 0);
+        }
+    }
+
+    void onecook(Queue &cook, Queue &abortQ, Queue &timeoutQ) {
+        Node* cur = head;
+        int cook_now = 0;
+        int CID = 1;
+        Queue waiting;
+
+        while (cur != nullptr) {
+            // 處理 waiting 中可做的訂單
+            while (!waiting.empty() && cook_now <= cur->Arrival) {
+                Node* job = waiting.head;
+                waiting.head = job->next;
+                if (!waiting.head) waiting.tail = nullptr;
+
+                int pick_time = cook_now;
+                if (pick_time < job->Arrival) pick_time = job->Arrival;
+
+                if (pick_time > job->Timeout) { // Abort
+                    int delay = pick_time - job->Arrival;
+                    abortQ.enquene(job->OID, CID, delay, pick_time, 0, 0, 0, CID);
+                }
+                else { // 成功或 Timeout
+                    cook_now = pick_time + job->Duration;
+                    if (cook_now > job->Timeout) {
+                        int delay = pick_time - job->Arrival;
+                        timeoutQ.enquene(job->OID, CID, delay, cook_now, 0, 0, cook_now, CID);
+                    }
+                }
+                delete job;
+            }
+
+            if (waiting.size() >= 3) {
+                abortQ.enquene(cur->OID, 0, 0, cur->Arrival, 0, 0, 0, CID);
+            } else {
+                waiting.enquene(cur->OID, cur->Arrival, cur->Duration, cur->Timeout, 0, 0, 0, 0);
+            }
+
+            cur = cur->next;
+        }
+
+        // 處理 waiting 殘餘
+        while (!waiting.empty()) {
+            Node* job = waiting.head;
+            waiting.head = job->next;
+            if (!waiting.head) waiting.tail = nullptr;
+
+            int pick_time = cook_now;
+            if (pick_time < job->Arrival) pick_time = job->Arrival;
+
+            if (pick_time > job->Timeout) {
+                int delay = pick_time - job->Arrival;
+                abortQ.enquene(job->OID, CID, delay, pick_time, 0, 0, 0, CID);
+            }
+            else {
+                cook_now = pick_time + job->Duration;
+                if (cook_now > job->Timeout) {
+                    int delay = pick_time - job->Arrival;
+                    timeoutQ.enquene(job->OID, CID, delay, cook_now, 0, 0, cook_now, CID);
+                }
+            }
+            delete job;
+        }
+    }
+
+    void write_file2(int file_number, Queue &timeoutQ) {
+        std::ofstream outfile("One" + std::to_string(file_number) + ".txt");
+
+        // Abort List
+        outfile << "[Abort List]\nOID CID Delay Abort\n";
+        Node* temp = head;
+        int total_delay = 0;
+        int total_fail = 0;
+        while (temp) {
+            outfile << "[" << total_fail + 1 << "] "
+                    << temp->OID << " "
+                    << temp->CID << " "
+                    << temp->Delay << " "
+                    << temp->Abort << "\n";
+            total_delay += temp->Delay;
+            total_fail++;
+            temp = temp->next;
+        }
+
+        // Timeout List
+        outfile << "[Timeout List]\nOID CID Delay Departure\n";
+        temp = timeoutQ.head;
+        while (temp) {
+            outfile << "[" << total_fail + 1 << "] "
+                    << temp->OID << " "
+                    << temp->CID << " "
+                    << temp->Delay << " "
+                    << temp->Departure << "\n";
+            total_delay += temp->Delay;
+            total_fail++;
+            temp = temp->next;
+        }
+
+        // 總延誤 & 失敗比例
+        outfile << "[Total Delay]\n" << total_delay << " min.\n";
+        double fail_percent = (total_fail > 0) ? (double)total_fail * 100.0 / total_fail : 0.0;
+        outfile << "[Failure Percentage]\n" << std::fixed << std::setprecision(2) << fail_percent << "%\n";
+
+        outfile.close();
+    }
+};
+
+// ---------------- main() ----------------
+int main() {
+    int file_number = 401; // 可以改
+    std::string filename = "sorted" + std::to_string(file_number) + ".txt";
+    std::ifstream infile(filename);
+    if (!infile) {
+        std::cout << "Cannot open " << filename << "\n";
+        return 1;
+    }
+
+    Queue orders;
+    orders.load(infile);
+    infile.close();
+
+    Queue cook, abortQ, timeoutQ;
+    orders.onecook(cook, abortQ, timeoutQ);
+
+    abortQ.write_file2(file_number, timeoutQ);
+
+    std::cout << "Simulation completed: One" << file_number << ".txt generated.\n";
+    return 0;
+}
