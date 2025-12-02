@@ -230,6 +230,18 @@ class Queue {
     }
   }
 
+  void printd() {
+    Node *temp = head;
+    std::cout << "OID CID Delay Departure \n";
+    while ( temp != NULL ) {
+        std::cout << temp->OID << "\t"
+                << temp->CID << "\t"
+                << temp->Delay << "\t"
+                << temp->Departure << "\n";
+        temp = temp->next;
+    }
+  }
+
   void write_file2(int file_number, Queue timeout) {
     std::string filename = "One" + std::to_string(file_number) + ".txt";
     std::ofstream outfile(filename);
@@ -266,17 +278,26 @@ class Queue {
         // =============================
         if (cook.size() == 0 && cook.now_time < temp->Arrival) {
             cook.now_time = temp->Arrival;
-            cook.enquene(temp->OID, temp->Arrival, temp->Duration,
-                           temp->Timeout, 0, 0, 0, 1);
+        }
+        if (cook.size() == 3) {
+          int Abort = temp->Arrival;
+          int Delay = 0;
+          cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+          temp->Timeout, Abort, Delay, 0, 0);          
+          temp = temp->next;
+          continue;
         }
 
+        cook.enquene(temp->OID, temp->Arrival, temp->Duration,
+                temp->Timeout, 0, 0, 0, 1);
+                  
         // =============================
         // 4. 如果廚師此時空閒 → 從等待佇列取1筆來做
         // =============================
         while (cook.size() > 0  && cook.now_time <= temp->Arrival) {
             //std::cout << cook.size() << "cook.size()\n";
             Node *job = cook.head;  // 尚未真正 Dequeue 前的第一筆
-
+            cook.printo();
             // -------- (A) 取出時逾時 → 取消清單 --------
             if (job->Timeout < cook.now_time) {
                 int Abort = cook.now_time;
@@ -297,6 +318,7 @@ class Queue {
             }
             int timeout_time = pp->Timeout;
             int duration_time = pp->Duration;
+            temp = temp->next;
             for ( int i = 0; i < duration_time; i++ ) {
               
               // 中途逾時 → 取消清單
@@ -304,34 +326,35 @@ class Queue {
                 int Abort = cook.now_time;
                 int Delay = startTime - job->Arrival;
                 
-                cancel.enquene(job->OID, job->Arrival, job->Duration,
+                Timeout.enquene(job->OID, job->Arrival, job->Duration,
                   job->Timeout, Abort, Delay, 0, 1);
                   break;
-                }
-                if ( temp->Arrival == cook.now_time ) {
+              }
+              if ( temp->Arrival == cook.now_time ) {
               
-                  if (cook.size() == 3) {
-                    int Abort = temp->Arrival;
-                    int Delay = 0;
-                    cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
-                      temp->Timeout, Abort, Delay, 0, 0);
+                if (cook.size() == 3) {
+                  int Abort = temp->Arrival;
+                  int Delay = 0;
+                  cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+                    temp->Timeout, Abort, Delay, 0, 0);
                     
-                      temp = temp->next;
-                      continue;
-                  }
+                    temp = temp->next;
+                    continue;
+                }
                   
-                  cook.enquene(temp->OID, temp->Arrival, temp->Duration,
-                      temp->Timeout, 0, 0, 0, 0);
-                      temp = temp->next;
-                  }
-                  if ( temp == NULL ) {
-                    break;
-                  }
-                  cook.now_time = cook.now_time + 1;
+                cook.enquene(temp->OID, temp->Arrival, temp->Duration,
+                    temp->Timeout, 0, 0, 0, 0);
+                temp = temp->next;
+              }
+              if ( temp == NULL ) {
+                break;
+              }
+              cook.now_time = cook.now_time + 1;
             }
 
             // -------- (C) 做完後逾時 → Timeout 清單 --------
             if (job->Timeout < cook.now_time) {
+                std::cout << "dd\n";
                 int Departure = cook.now_time;
                 int Delay = startTime - job->Arrival;
 
@@ -366,7 +389,7 @@ class Queue {
         if (cook.now_time < job->Arrival) {
           cook.now_time = job->Arrival;  // 廚師忙到 job->Arrival 時間點
         }
-        cook.now_time += job->Duration;
+        cook.now_time = cook.now_time + job->Duration;
 
         if (job->Timeout < cook.now_time) {
             int Departure = cook.now_time;
@@ -448,7 +471,7 @@ void task2() {
     //cancel.write_file2(file_number, delay);
     cancel.printc();
     std::cout << "[Total Delay]" << total_delay;
-
+    delay.printd();
     
   } else {
     std::cout << "input" << file_number << ".txt does not exist!";
