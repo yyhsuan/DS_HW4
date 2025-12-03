@@ -1,0 +1,141 @@
+  // --- 新增：雙佇列模擬（twocook） ---
+  // cook1, cook2: 兩位廚師的佇列（呼叫時由外部傳入）
+  // cancel: 取消清單（CID 記 0 若未進入佇列即被取消）
+  // Timeout: 逾時清單
+  // 回傳值：total_delay（總延誤時間）
+  int twocook(Queue &cook1, Queue &cook2, Queue &cancel, Queue &Timeout) {
+    const int MAXQ = 3; // 題目要求每個佇列最多 3 筆訂單
+    Node *it = head;  // 從輸入清單開始模擬（this->head）
+    int total_delay = 0;
+
+    if (it == nullptr) return 0;
+
+    // 初始時間：跳到第一筆到達
+    int cur_time = it->Arrival;
+    if (cook1.now_time < cur_time) cook1.now_time = cur_time;
+    if (cook2.now_time < cur_time) cook2.now_time = cur_time;
+
+    // 目前正在處理之 job 的 finish 時間（-1 表示無正在處理）
+    int finish1 = -1, finish2 = -1;
+    int start1 = 0, start2 = 0; // 各自正在處理 job 的開始時間（用於 Delay 計算）
+
+    // 迴圈直到所有輸入處理完且兩廚師佇列皆空（且無進行中工作）
+    while (it != nullptr || cook1.size() > 0 || cook2.size() > 0 || finish1 != -1 || finish2 != -1) {
+
+      // 1) 處理在 cur_time 到達的所有訂單（依序從 it 取）
+      while (it != nullptr && it->Arrival == cur_time) {
+        // 忽略非法訂單（跟任務二一樣）
+        if (it->Duration <= 0 || it->Arrival + it->Duration > it->Timeout) {
+          it = it->next;
+          continue;
+        }
+
+        // 判斷兩位廚師是否閒置（規則：閒置 iff now_time <= arrival 且佇列為空）
+        bool idle1 = (cook1.size() == 0 && cook1.now_time <= it->Arrival);
+        bool idle2 = (cook2.size() == 0 && cook2.now_time <= it->Arrival);
+
+        if (idle1 && !idle2) {
+          // Case 1: 只有 1 號閒置 -> 選 1
+          cook1.enquene(it->OID, it->Arrival, it->Duration, it->Timeout, 0, 0, 0, 1);
+        } else if (!idle1 && idle2) {
+          // Case 1 symmetric -> 選 2
+          cook2.enquene(it->OID, it->Arrival, it->Duration, it->Timeout, 0, 0, 0, 2);
+        } else if (idle1 && idle2) {
+          // Case 2: 二位都閒置 -> 選 1
+          cook1.enquene(it->OID, it->Arrival, it->Duration, it->Timeout, 0, 0, 0, 1);
+        } else {
+          // 都不閒置
+          if (cook1.size() < MAXQ || cook2.size() < MAXQ) {
+            // Case 3: 二位都不閒置且至少一個佇列沒滿 -> 選佇列長度較短（equal => 選 1）
+            if (cook1.size() <= cook2.size()) {
+              cook1.enquene(it->OID, it->Arrival, it->Duration, it->Timeout, 0, 0, 0, 1);
+            } else {
+              cook2.enquene(it->OID, it->Arrival, it->Duration, it->Timeout, 0, 0, 0, 2);
+            }
+          } else {
+            // Case 4: 兩個佇列都滿 -> 立即取消（CID = 0）
+            int Abort = it->Arrival;
+            int Delay = 0;
+            cancel.enquene(it->OID, it->Arrival, it->Duration, it->Timeout, Abort, Delay, 0, 0);
+          }
+        }
+
+        it = it->next;
+      } // end handle arrivals at cur_time
+
+      // 2) 若某廚師目前無進行中工作但佇列有工作 -> 開始處理佇列頭的工作（設定 finish 時間）
+      if (finish1 == -1 && cook1.size() > 0) {
+        Node *job = cook1.head;
+        // 開始時間 = max(cook1.now_time, job.Arrival, cur_time) 但 cur_time >= job->Arrival 通常成立
+        int s = cook1.now_time;
+        if (s < job->Arrival) s = job->Arrival;
+        if (s < cur_time) s = cur_time;
+        start1 = s;
+        finish1 = s + job->Duration;
+        // 將 cook1 的會閒置的時間更新為 finish1（跟一廚函式邏輯一致）
+        cook1.now_time = finish1;
+      }
+
+      if (finish2 == -1 && cook2.size() > 0) {
+        Node *job = cook2.head;
+        int s = cook2.now_time;
+        if (s < job->Arrival) s = job->Arrival;
+        if (s < cur_time) s = cur_time;
+        start2 = s;
+        finish2 = s + job->Duration;
+        cook2.now_time = finish2;
+      }
+
+      // 3) 處理在 cur_time 發生的完成事件（若 finish1 或 finish2 等於 cur_time）
+      //    先處理完成（在一廚實作中，做菜結束後若超過 Timeout 會列入 Timeout）
+      if (finish1 != -1 && finish1 == cur_time && cook1.size() > 0) {
+        Node *job = cook1.head;
+        int Departure = finish1;
+        // 判斷是否逾時（題目用法：若 Timeout < Departure，視為逾時）
+        if (job->Timeout < Departure) {
+          int Delay = start1 - job->Arrival;
+          if (Delay < 0) Delay = 0;
+          total_delay += Delay;
+          Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, job->CID);
+        }
+        // 完成並移出佇列
+        cook1.dequene();
+        finish1 = -1;
+      }
+
+      if (finish2 != -1 && finish2 == cur_time && cook2.size() > 0) {
+        Node *job = cook2.head;
+        int Departure = finish2;
+        if (job->Timeout < Departure) {
+          int Delay = start2 - job->Arrival;
+          if (Delay < 0) Delay = 0;
+          total_delay += Delay;
+          Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, job->CID);
+        }
+        cook2.dequene();
+        finish2 = -1;
+      }
+
+      // 4) 前進到下一個事件時間（下一個到達或下一個 finish）
+      int nextArrival = (it != nullptr) ? it->Arrival : INT_MAX;
+      int nextFinish = INT_MAX;
+      if (finish1 != -1) nextFinish = std::min(nextFinish, finish1);
+      if (finish2 != -1) nextFinish = std::min(nextFinish, finish2);
+      int nextTime = std::min(nextArrival, nextFinish);
+
+      if (nextTime == INT_MAX) {
+        // 沒有下一事件，模擬結束
+        break;
+      }
+
+      // 若下一事件時間與 cur_time 相同，避免死迴圈 => 直接迴圈一次（但一般不會發生）
+      if (nextTime == cur_time) {
+        cur_time++;
+      } else {
+        cur_time = nextTime;
+      }
+    } // end outer while
+
+    return total_delay;
+  }
+  // --- end twocook ---
