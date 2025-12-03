@@ -1,0 +1,707 @@
+// queue_sim.cpp
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <chrono>
+#include <cmath>
+#include <climits>
+
+const int QUEUE_CAP = 3;
+
+class Queue {
+ private:
+  int now_time = 0; // 閒置時間
+  
+  struct Node {
+    int OID;
+    int Arrival; // 下單時間
+    int Duration; // 製作時間
+    int Timeout;  // 到期時刻
+    int Abort; // 取消時刻
+    int Delay; // 延誤時間
+    int Departure; // 完成時刻
+    int CID = 0; // 廚師編號
+    Node* next;
+    Node(int o, int a, int d, int t, int abort, int delay, int departure, int cid) {
+      OID = o;
+      Arrival = a;
+      Duration = d;
+      Timeout = t;
+      Abort = abort;
+      Delay = delay;
+      Departure = departure;
+      CID = cid;
+      next = nullptr;
+    }
+  };
+
+  Node *head, *tail;
+  int len;
+
+ public:
+  Queue() {
+    head = nullptr;
+    tail = nullptr;
+    len = 0;
+    now_time = 0;
+  }
+
+  ~Queue() {
+    while (!empty()) {
+      dequene();
+    }
+  }
+
+  bool empty() {
+    return head == nullptr;
+  }
+
+  void enquene(int o, int a, int d, int t, int abort, int delay, int departure, int cid) {
+    Node* n = new Node(o, a, d, t, abort, delay, departure, cid);
+    if (tail) {
+      tail->next = n;
+    }
+    tail = n;
+    if (!head) {
+      head = n;
+    }
+    len++;
+  }
+
+  void dequene() {
+    if (!head) {
+      return;
+    }
+    Node* t = head;
+    head = head->next;
+    if (!head) {
+      tail = nullptr;
+    }
+    delete t;
+    len--;
+  }
+
+  int size() {
+    return len;
+  }
+
+  void load(std::ifstream &infile) {
+    std::string line;
+    std::getline(infile, line); // 頭列
+    int o, a, d, t;
+    while (true) {
+        if (!std::getline(infile, line)) break;
+        if (line.empty()) continue;
+        int num = 0;
+        int order = 0;
+        o = a = d = t = 0;
+        for (size_t i = 0; i <= line.size(); i++) {
+            char ch;
+            if (i < line.size()) ch = line[i];
+            else ch = '\t';
+            if (ch >= '0' && ch <= '9') {
+                num = num * 10 + (ch - '0');
+            } else {
+                if (order == 0) o = num;
+                else if (order == 1) a = num;
+                else if (order == 2) d = num;
+                else if (order == 3) t = num;
+                if (order == 3) break;
+                num = 0;
+                order++;
+            }
+        }
+        enquene(o, a, d, t, 0, 0, 0, 0);
+    }
+  }
+
+  Node* turnindex(int index) {
+    Node* temp = head;
+    int i = 0;
+    while (i < index && temp != nullptr) {
+      temp = temp->next;
+      i++;
+    }
+    return temp;
+  }
+
+  void sell_sore2() {
+    int size = len;
+    if (size <= 1) return;
+    int gap = size / 2;
+    while (gap != 0) {
+      for (int i = 0; i < size; i++) {
+        for (int j = i + gap; j < size; j = j + gap) {
+          Node* temp1 = turnindex(j);
+          int tempOID      = temp1->OID;
+          int tempArrival  = temp1->Arrival;
+          int tempDuration = temp1->Duration;
+          int tempTimeout  = temp1->Timeout;
+          int k = j - gap;
+          while (k >= 0) {
+            Node* k_temp = turnindex(k);
+            bool needmove = false;
+            if (k_temp->Arrival > tempArrival) needmove = true;
+            else if (k_temp->Arrival == tempArrival && k_temp->OID > tempOID) needmove = true;
+            if (!needmove) break;
+            Node* target = turnindex(k + gap);
+            target->OID      = k_temp->OID;
+            target->Arrival  = k_temp->Arrival;
+            target->Duration = k_temp->Duration;
+            target->Timeout  = k_temp->Timeout;
+            k = k - gap;
+          }
+          Node* insert = turnindex(k + gap);
+          if (insert != nullptr) {
+            insert->OID      = tempOID;
+            insert->Arrival  = tempArrival;
+            insert->Duration = tempDuration;
+            insert->Timeout  = tempTimeout;
+          }
+        }
+      }
+      gap = gap / 2;
+    }
+  }
+
+  void write_file(std::string file_number) {
+    std::string filename = "sorted" + file_number + ".txt";
+    std::ofstream outfile(filename);
+    Node *temp = head;
+    outfile << "OID\tArrival\tDuration\tTimeOut\n";
+    while ( temp != NULL ) {
+        outfile << temp->OID << "\t"
+                << temp->Arrival << "\t"
+                << temp->Duration << "\t"
+                << temp->Timeout << "\n";
+        temp = temp->next;
+    }
+    return;
+  }
+
+  void printo() {
+    Node *temp = head;
+    std::cout << "OID Arrival Duration TimeOut\n";
+    while ( temp != NULL ) {
+        std::cout << temp->OID << "\t"
+                << temp->Arrival << "\t"
+                << temp->Duration << "\t"
+                << temp->Timeout << "\n";
+        temp = temp->next;
+    }
+  }
+
+  void printc() {
+    Node *temp = head;
+    std::cout << "OID CID Delay Abort\n";
+    while ( temp != NULL ) {
+        std::cout << temp->OID << "\t"
+                << temp->CID << "\t"
+                << temp->Delay << "\t"
+                << temp->Abort << "\n";
+        temp = temp->next;
+    }
+  }
+
+  void printd() {
+    Node *temp = head;
+    std::cout << "OID CID Delay Departure\n";
+    while ( temp != NULL ) {
+        std::cout << temp->OID << "\t"
+                << temp->CID << "\t"
+                << temp->Delay << "\t"
+                << temp->Departure << "\n";
+        temp = temp->next;
+    }
+  }
+
+  void write_file2(std::string file_number, Queue &timeout, int total, int size, std::string prefix = "two") {
+    std::string filename = prefix + file_number + ".txt";
+    std::ofstream outfile(filename);
+
+    Node *abort_temp = head;
+    Node *timeout_temp = timeout.head;
+
+    int i = 1;
+
+    outfile << "\t[Abort List]\n";
+    outfile << "\tOID\tCID\tDelay\tAbort\n";
+
+    while (abort_temp != NULL) {
+        outfile << "[" << i << "]\t"
+                << abort_temp->OID << "\t"
+                << abort_temp->CID << "\t"
+                << abort_temp->Delay << "\t"
+                << abort_temp->Abort << "\n";
+        abort_temp = abort_temp->next;
+        i++;
+    }
+
+    i = 1;
+    outfile << "\n\t[Timeout List]\n";
+    outfile << "\tOID\tCID\tDelay\tDeparture\n";
+
+    while (timeout_temp != NULL) {
+        outfile << "[" << i << "]\t"
+                << timeout_temp->OID << "\t"
+                << timeout_temp->CID << "\t"
+                << timeout_temp->Delay << "\t"
+                << timeout_temp->Departure << "\n";
+        timeout_temp = timeout_temp->next;
+        i++;
+    }
+
+    outfile << "\n[Total Delay]\n";
+    outfile << total << " min.\n";
+    outfile << "[Failure Percentage]\n";
+    double fail = (double)(len + timeout.len) / (double)size * 100.0;
+    fail = std::round(fail * 100.0) / 100.0;
+    outfile << std::fixed;
+    outfile.precision(2);
+    outfile << fail << " %\n";
+  }
+
+  void Print_original(std::string filename) {
+    std::ifstream infile(filename); // 讀檔
+    char ch;
+    while ( infile.get(ch) ) {
+      std::cout << ch;
+    }
+    std::cout << std::endl;
+    infile.close();
+  }
+
+  int onecook(Queue &cook, Queue &cancel, Queue &Timeout) {
+    bool move = false;
+    Node *temp = head;
+    int total_delay = 0;
+
+    while (temp != NULL) {
+        move = false;
+        if (cook.size() == 0 && cook.now_time < temp->Arrival) {
+            cook.now_time = temp->Arrival;
+        }
+
+        if (cook.size() >= QUEUE_CAP) {
+            if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
+              int Abort = temp->Arrival;
+              int Delay = 0;
+              total_delay = total_delay + Delay;
+              cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+                           temp->Timeout, Abort, Delay, 0, 0);
+
+              temp = temp->next;
+              move = true;
+            }
+
+            else {
+              temp = temp->next;
+              len--;
+              move = true;
+            }
+        }
+
+        if ( !move ) {
+          if ( temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout ) {
+            cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+            temp = temp->next;
+            move = true;
+            if ( temp != NULL && (temp->Duration <= 0 || temp->Arrival + temp->Duration > temp->Timeout) ) {
+              temp = temp->next;
+              len--;
+              move = true;
+            }
+          }
+
+          else {
+            temp = temp->next;
+            len--;
+            move = true;
+          }
+        }
+
+        while (cook.size() > 0 && temp != NULL && cook.now_time <= temp->Arrival) {
+
+            Node *job = cook.head;
+
+            if (job->Timeout < cook.now_time) {
+                int Abort = cook.now_time;
+                int Delay = Abort - job->Arrival;
+                total_delay = total_delay + Delay;
+
+                cancel.enquene(job->OID, job->Arrival, job->Duration,
+                               job->Timeout, Abort, Delay, 0, 1);
+
+                cook.dequene();
+                continue;
+            }
+
+            int startTime = cook.now_time;
+
+            if (cook.now_time < job->Arrival) {
+              cook.now_time = job->Arrival;
+            }
+
+            int duration_time = job->Duration;
+
+            for (int i = 0; i < duration_time; i++) {
+
+                while (temp != NULL && temp->Arrival == cook.now_time) {
+                    if ( temp->Duration <= 0 || temp->Arrival + temp->Duration > temp->Timeout ) {
+                      temp = temp->next;
+                      len--;
+                      continue;
+                    }
+                    if (cook.size() >= QUEUE_CAP) {
+                        cancel.enquene(temp->OID, temp->Arrival, temp->Duration,
+                                       temp->Timeout, temp->Arrival, 0, 0, 0);
+                        temp = temp->next;
+                        continue;
+                    }
+
+                    cook.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+                    temp = temp->next;
+                }
+
+                cook.now_time++;
+            }
+
+            if (job->Timeout < cook.now_time) {
+                int Departure = cook.now_time;
+                int Delay = startTime - job->Arrival;
+                total_delay = total_delay + Delay;
+
+                Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, 1);
+            }
+
+            cook.dequene();
+        }
+
+        if (!move && temp != NULL) {
+          temp = temp->next;
+        }
+    }
+
+    while (cook.size() > 0) {
+
+        Node *job = cook.head;
+
+        if ( job->Duration <= 0 || job->Arrival + job->Duration > job->Timeout ) {
+          cook.dequene();
+          len--;
+          continue;
+        }
+        if (job->Timeout < cook.now_time) {
+            int Abort = cook.now_time;
+            int Delay = Abort - job->Arrival;
+            total_delay = total_delay + Delay;
+            cancel.enquene(job->OID, job->Arrival, job->Duration,
+                           job->Timeout, Abort, Delay, 0, 1);
+
+            cook.dequene();
+            continue;
+        }
+
+        int startTime = cook.now_time;
+        if (cook.now_time < job->Arrival) {
+            cook.now_time = job->Arrival;
+        }
+
+        cook.now_time = cook.now_time + job->Duration;
+
+        if (job->Timeout < cook.now_time) {
+          int Departure = cook.now_time;
+          int Delay = startTime - job->Arrival;
+          total_delay = total_delay + Delay;
+
+          Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, 1);
+        }
+
+        cook.dequene();
+    }
+
+    return total_delay;
+  }
+
+  // ==== 已修正的 twocook 實作 ====
+  int twocook(Queue &cook1, Queue &cook2, Queue &cancel, Queue &Timeout) {
+    Node *temp = head;
+    int total_delay = 0;
+
+    auto front_finish = [&](Queue &q)->int {
+        if (q.size() == 0) return INT_MAX;
+        int start = (q.now_time < q.head->Arrival) ? q.head->Arrival : q.now_time;
+        return start + q.head->Duration;
+    };
+
+    while (temp != NULL) {
+        // 1) 在處理這筆 arrival 之前：先把所有 finish <= arrival 的 front job 處理掉
+        int finish1 = (cook1.size() > 0) ? front_finish(cook1) : INT_MAX;
+        int finish2 = (cook2.size() > 0) ? front_finish(cook2) : INT_MAX;
+
+        while (finish1 <= temp->Arrival || finish2 <= temp->Arrival) {
+            Queue *curcook = nullptr;
+            if (finish1 <= finish2) curcook = &cook1; else curcook = &cook2;
+
+            Node *job = curcook->head;
+            if (!job) {
+                finish1 = (cook1.size() > 0) ? front_finish(cook1) : INT_MAX;
+                finish2 = (cook2.size() > 0) ? front_finish(cook2) : INT_MAX;
+                continue;
+            }
+
+            int startTime = (curcook->now_time < job->Arrival) ? job->Arrival : curcook->now_time;
+            int finishTime = startTime + job->Duration;
+
+            if (job->Timeout < startTime) {
+                int Abort = startTime;
+                int Delay = Abort - job->Arrival;
+                total_delay += Delay;
+                cancel.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, Abort, Delay, 0, (curcook==&cook1)?1:2);
+                curcook->dequene();
+            } else {
+                curcook->now_time = finishTime;
+                if (job->Timeout < curcook->now_time) {
+                    int Departure = curcook->now_time;
+                    int Delay = startTime - job->Arrival;
+                    total_delay += Delay;
+                    Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, (curcook==&cook1)?1:2);
+                }
+                curcook->dequene();
+            }
+
+            finish1 = (cook1.size() > 0) ? front_finish(cook1) : INT_MAX;
+            finish2 = (cook2.size() > 0) ? front_finish(cook2) : INT_MAX;
+        }
+
+        // 2) 現在分配 temp（採 Case1~4 與 SQF）
+        bool idle1 = (cook1.size() == 0 && cook1.now_time <= temp->Arrival);
+        bool idle2 = (cook2.size() == 0 && cook2.now_time <= temp->Arrival);
+
+        if (idle1 && !idle2) {
+            cook1.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+            temp = temp->next;
+            continue;
+        } else if (!idle1 && idle2) {
+            cook2.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 2);
+            temp = temp->next;
+            continue;
+        } else if (idle1 && idle2) {
+            cook1.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, 1);
+            temp = temp->next;
+            continue;
+        } else {
+            bool full1 = (cook1.size() >= QUEUE_CAP);
+            bool full2 = (cook2.size() >= QUEUE_CAP);
+            if (full1 && full2) {
+                if (temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout) {
+                    int Abort = temp->Arrival;
+                    int Delay = 0;
+                    cancel.enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, Abort, Delay, 0, 0);
+                } else {
+                    temp = temp->next;
+                    len--;
+                    continue;
+                }
+                temp = temp->next;
+                continue;
+            } else {
+                Queue *choose = nullptr;
+                if (cook1.size() <= cook2.size()) choose = &cook1; else choose = &cook2;
+                if (temp->Duration > 0 && temp->Arrival + temp->Duration <= temp->Timeout) {
+                    choose->enquene(temp->OID, temp->Arrival, temp->Duration, temp->Timeout, 0, 0, 0, (choose==&cook1)?1:2);
+                } else {
+                    len--;
+                }
+                temp = temp->next;
+                continue;
+            }
+        }
+    }
+
+    // 3) 所有輸入處理完，兩位廚師把佇列內剩下的做完（依 finish time 小的優先）
+    while (cook1.size() > 0 || cook2.size() > 0) {
+        Queue *curcook = nullptr;
+        if (cook1.size() > 0 && cook2.size() > 0) {
+            int f1 = front_finish(cook1);
+            int f2 = front_finish(cook2);
+            curcook = (f1 <= f2) ? &cook1 : &cook2;
+        } else if (cook1.size() > 0) curcook = &cook1;
+        else curcook = &cook2;
+
+        Node *job = curcook->head;
+        if (!job) { curcook->dequene(); continue; }
+
+        int startTime = (curcook->now_time < job->Arrival) ? job->Arrival : curcook->now_time;
+        if (job->Timeout < startTime) {
+            int Abort = startTime;
+            int Delay = Abort - job->Arrival;
+            total_delay += Delay;
+            cancel.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, Abort, Delay, 0, (curcook==&cook1)?1:2);
+            curcook->dequene();
+            continue;
+        }
+        curcook->now_time = startTime + job->Duration;
+        if (job->Timeout < curcook->now_time) {
+            int Departure = curcook->now_time;
+            int Delay = startTime - job->Arrival;
+            total_delay += Delay;
+            Timeout.enquene(job->OID, job->Arrival, job->Duration, job->Timeout, 0, Delay, Departure, (curcook==&cook1)?1:2);
+        }
+        curcook->dequene();
+    }
+
+    return total_delay;
+  }
+
+}; // end Queue
+
+void task1() {
+  std::string file_number;
+  std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
+  std::cin >> file_number;
+  getchar();
+  std::string filename = "input" + file_number + ".txt";
+  std::ifstream infile(filename);
+  Queue q1;
+  if (infile) {
+    q1.Print_original(filename);
+    auto start = std::chrono::high_resolution_clock::now();
+    std::ifstream infile2(filename);
+    q1.load(infile2);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Reading data: " << duration.count() << " us." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    q1.sell_sore2();
+    end = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Sorting data: " << duration.count() << " us." << std::endl;
+    start = std::chrono::high_resolution_clock::now();
+    q1.write_file(file_number);
+    end = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Writing data: " << duration.count() << " us." << std::endl;
+    
+  } else {
+    std::cout << "input" << file_number << ".txt does not exist!";
+  }
+  return;
+}
+
+void task2() {
+  std::string file_number;
+  std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
+  std::cin >> file_number;
+  getchar();
+  std::string filename = "sorted" + file_number + ".txt";
+  Queue q1;
+  std::ifstream infile(filename);
+  if (infile) {
+    q1.Print_original(filename);
+    std::ifstream infile2(filename);
+    q1.load(infile2);
+    Queue cook;
+    Queue cancel;
+    Queue delay;
+    int total_delay = q1.onecook(cook, cancel, delay);
+    int size = q1.size();
+    cancel.write_file2(file_number, delay, total_delay, size, "one");
+    
+  } else {
+    std::cout << "sorted" << file_number << ".txt does not exist!";
+  }
+  return;
+}
+
+void task3() {
+  std::string file_number;
+  std::cout << "Input a file number (e.g., 401, 402, 403, ...): ";
+  std::cin >> file_number;
+  getchar();
+  std::string filename = "sorted" + file_number + ".txt";
+  Queue q1;
+  std::ifstream infile(filename);
+  if (infile) {
+    q1.Print_original(filename);
+    std::ifstream infile2(filename);
+    q1.load(infile2);
+
+    Queue cook1;
+    Queue cook2;
+    Queue cancel;
+    Queue delay;
+
+    int total_delay = q1.twocook(cook1, cook2, cancel, delay);
+    int size = q1.size();
+
+    cancel.write_file2(file_number, delay, total_delay, size, "two");
+
+  } else {
+    std::cout << "sorted" << file_number << ".txt does not exist!";
+  }
+  return;
+}
+
+void Start() {
+  std::cout << "*** (^_^) Data Structure (^o^) ***" << std::endl;
+  std::cout << "** Simulate FIFO Queues by SQF ***" << std::endl;
+  std::cout << "* 0. Quit                        *" << std::endl;
+  std::cout << "* 1. Sort a file                 *" << std::endl;
+  std::cout << "* 2. Simulate one FIFO queue     *" << std::endl;
+  std::cout << "* 3. Simulate two queues by SQF  *" << std::endl;
+  std::cout << "* 4. Simulate some queues by SQF *" << std::endl;
+  std::cout << "**********************************" << std::endl;
+  std::cout << "Input a command(0, 1, 2, 3, 4): ";
+}
+
+int main() {
+  Start();
+  while (true) {
+    int command = 0;
+    char ch;
+    bool has_digit = false;
+    bool invalid = false;
+    bool aaaaa = false;
+    while ((ch = getchar()) != '\n') {
+      if (ch == ' ' || ch == '\t') {
+        continue;
+      } else if (ch >= '0' && ch <= '4') {
+        if (has_digit) {
+          invalid = true;
+        } else {
+          command = ch - '0';
+          has_digit = true;
+        }
+      } else if (ch >= '5' && ch <= '9') {
+        has_digit = true;
+      } else {
+        aaaaa = true;
+      }
+    }
+
+    if (aaaaa) {
+      return 0;
+    }
+
+    if (invalid) {
+      std::cout << "Command does not exist!" << std::endl << std::endl;
+      Start();
+      continue;
+    }
+    if (command == 0) {
+      return 0;
+    }
+    if (command == 1) {
+      task1();
+    } else if (command == 2) {
+      task2();
+    } else if (command == 3) {
+      task3();
+    } else if (command == 4) {
+      //task4();
+    }
+    Start();
+  }
+  return 0;
+}
